@@ -166,6 +166,18 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(import.meta.dirname, "client", "index.html"),
+        sw: path.resolve(import.meta.dirname, "client", "src", "service-worker.ts"),
+      },
+      output: {
+        entryFileNames: (chunkInfo) => {
+          // Service worker must be named service-worker.js at root
+          return chunkInfo.name === 'sw' ? 'service-worker.js' : 'assets/[name]-[hash].js';
+        },
+      },
+    },
   },
   server: {
     port: 3000,
