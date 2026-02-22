@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>uduXPass Events API Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .event { border: 1px solid #ccc; padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .event h3 { margin: 0 0 10px 0; color: #333; }
+        .event p { margin: 5px 0; color: #666; }
+        .loading { color: #666; font-style: italic; }
+        .error { color: red; padding: 10px; background: #fee; border-radius: 4px; }
+        .success { color: green; padding: 10px; background: #efe; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>uduXPass Events API Test</h1>
+    <div id="status" class="loading">Loading events...</div>
+    <div id="events"></div>
+
+    <script>
+        async function testAPI() {
+            const statusDiv = document.getElementById('status');
+            const eventsDiv = document.getElementById('events');
+            
+            try {
+                // Test 1: Health check
+                const healthResponse = await fetch('http://localhost:8080/health');
+                const health = await healthResponse.json();
+                console.log('Health check:', health);
+                
+                // Test 2: Get events
+                const eventsResponse = await fetch('http://localhost:8080/v1/events');
+                const eventsData = await eventsResponse.json();
+                console.log('Events API response:', eventsData);
+                
+                if (eventsData.success && eventsData.data && eventsData.data.events) {
+                    const events = eventsData.data.events;
+                    
+                    if (events.length === 0) {
+                        statusDiv.className = 'error';
+                        statusDiv.textContent = '❌ No events found in database';
+                    } else {
+                        statusDiv.className = 'success';
+                        statusDiv.textContent = `✅ Successfully loaded ${events.length} event(s) from API`;
+                        
+                        events.forEach(event => {
+                            const eventDiv = document.createElement('div');
+                            eventDiv.className = 'event';
+                            eventDiv.innerHTML = `
+                                <h3>${event.name}</h3>
+                                <p><strong>Date:</strong> ${new Date(event.event_date).toLocaleString()}</p>
+                                <p><strong>Venue:</strong> ${event.venue_name}, ${event.venue_city}</p>
+                                <p><strong>Description:</strong> ${event.description}</p>
+                                <p><strong>Status:</strong> ${event.status}</p>
+                                <p><strong>Currency:</strong> ${event.currency}</p>
+                            `;
+                            eventsDiv.appendChild(eventDiv);
+                        });
+                    }
+                } else {
+                    statusDiv.className = 'error';
+                    statusDiv.textContent = '❌ API returned unexpected format';
+                }
+            } catch (error) {
+                statusDiv.className = 'error';
+                statusDiv.textContent = `❌ Error: ${error.message}`;
+                console.error('API test failed:', error);
+            }
+        }
+        
+        testAPI();
+    </script>
+</body>
+</html>

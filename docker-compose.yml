@@ -1,0 +1,129 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14-alpine
+    container_name: uduxpass-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: uduxpass
+      POSTGRES_PASSWORD: uduxpass_local_password
+      POSTGRES_DB: uduxpass_db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uduxpass -d uduxpass_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - uduxpass-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: uduxpass-backend
+    restart: unless-stopped
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: uduxpass
+      DB_PASSWORD: uduxpass_local_password
+      DB_NAME: uduxpass_db
+      DB_SSLMODE: disable
+      
+      # Server
+      PORT: 8080
+      ENV: development
+      FRONTEND_URL: http://localhost:3000
+      
+      # JWT
+      JWT_SECRET: local_development_jwt_secret_key_minimum_32_characters_long_for_security
+      
+      # Email (SMTP) - Optional for local
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_USER: ${SMTP_USER:-your-email@gmail.com}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-your-app-password}
+      SMTP_FROM: noreply@uduxpass.local
+      
+      # Payment (Paystack) - Test keys
+      PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-sk_test_your_test_key}
+      PAYSTACK_PUBLIC_KEY: ${PAYSTACK_PUBLIC_KEY:-pk_test_your_test_key}
+      
+      # CORS
+      ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001,http://localhost:80
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - uduxpass-network
+    volumes:
+      - ./backend/migrations:/app/migrations
+      - ./backend/seeds:/app/seeds
+
+  # Customer Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: uduxpass-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080
+      VITE_PAYSTACK_PUBLIC_KEY: ${PAYSTACK_PUBLIC_KEY:-pk_test_your_test_key}
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - uduxpass-network
+
+  # Scanner App
+  scanner:
+    build:
+      context: ./uduxpass-scanner-app
+      dockerfile: Dockerfile
+    container_name: uduxpass-scanner
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - uduxpass-network
+
+networks:
+  uduxpass-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
