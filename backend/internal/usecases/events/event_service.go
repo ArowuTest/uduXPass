@@ -69,6 +69,8 @@ type CreateEventRequest struct {
 	SaleStart       *time.Time            `json:"sale_start,omitempty"`
 	SaleEnd         *time.Time            `json:"sale_end,omitempty"`
 	TicketTiers     []TicketTierRequest   `json:"ticket_tiers,omitempty"`
+	EnableMomo      *bool                 `json:"enable_momo,omitempty"`
+	EnablePaystack  *bool                 `json:"enable_paystack,omitempty"`
 }
 
 // CreateEventResponse represents the response from event creation
@@ -147,6 +149,13 @@ func (s *EventService) CreateEvent(ctx context.Context, req *CreateEventRequest)
 		if err := event.SetSalePeriod(*req.SaleStart, *req.SaleEnd); err != nil {
 			return nil, err
 		}
+	}
+	// Set payment method toggles
+	if req.EnableMomo != nil {
+		event.EnableMomo = *req.EnableMomo
+	}
+	if req.EnablePaystack != nil {
+		event.EnablePaystack = *req.EnablePaystack
 	}
 	
 	// Validate event

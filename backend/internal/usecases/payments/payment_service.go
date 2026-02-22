@@ -423,10 +423,17 @@ func (s *PaymentService) generateTickets(ctx context.Context, tx repositories.Tr
 		return fmt.Errorf("failed to create tickets: %w", err)
 	}
 	
-	// Send ticket email to customer (async - don't fail if email fails)
+	// Send ticket PDF email to customer (async - don't fail if email fails)
 	go func() {
-		if err := s.emailService.SendTicketEmail(context.Background(), order, tickets); err != nil {
-			fmt.Printf("Warning: failed to send ticket email for order %s: %v\n", order.Code, err)
+		// Fetch event for PDF generation
+		event, err := tx.Events().GetByID(context.Background(), order.EventID)
+		if err != nil {
+			fmt.Printf("Warning: failed to fetch event for order %s: %v\n", order.Code, err)
+			return
+		}
+		
+		if err := s.emailService.SendTicketPDFEmail(context.Background(), order, tickets, event); err != nil {
+			fmt.Printf("Warning: failed to send ticket PDF email for order %s: %v\n", order.Code, err)
 		}
 	}()
 	

@@ -17,8 +17,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { scannerApi, Event } from '@/lib/api';
-import { ArrowLeft, Loader2, MapPin } from 'lucide-react';
+import { ArrowLeft, Loader2, MapPin, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import { offlineDB } from '@/lib/offlineDB';
 
 export default function CreateSession() {
   const [, setLocation] = useLocation();
@@ -28,6 +29,7 @@ export default function CreateSession() {
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [isCaching, setIsCaching] = useState(false);
 
   useEffect(() => {
     loadEvents();
@@ -42,6 +44,42 @@ export default function CreateSession() {
       toast.error('Failed to load events');
     } finally {
       setIsLoadingEvents(false);
+    }
+  };
+
+  const cacheTickets = async () => {
+    if (!selectedEventId) {
+      toast.error('Please select an event first');
+      return;
+    }
+
+    setIsCaching(true);
+    try {
+      // Fetch all tickets for the event from API
+      const response = await fetch(`/api/scanner/events/${selectedEventId}/tickets`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch tickets');
+      }
+      
+      const data = await response.json();
+      const tickets = data.data || [];
+      
+      // Cache tickets in IndexedDB
+      await offlineDB.cacheTickets(selectedEventId, tickets);
+      
+      const stats = await offlineDB.getStats();
+      toast.success(`Cached ${tickets.length} tickets for offline use`);
+      console.log('Offline DB stats:', stats);
+    } catch (error) {
+      console.error('Failed to cache tickets:', error);
+      toast.error('Failed to cache tickets for offline use');
+    } finally {
+      setIsCaching(false);
     }
   };
 
@@ -120,6 +158,29 @@ export default function CreateSession() {
                   )}
                 </SelectContent>
               </Select>
+            )}
+            
+            {/* Cache Tickets Button */}
+            {selectedEventId && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={cacheTickets}
+                disabled={isCaching}
+                className="w-full mt-2"
+              >
+                {isCaching ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Caching tickets...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Cache Tickets for Offline Use
+                  </>
+                )}
+              </Button>
             )}
           </div>
 

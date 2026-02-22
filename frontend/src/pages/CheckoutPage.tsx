@@ -36,6 +36,8 @@ const CheckoutPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
+  const [event, setEvent] = useState<any>(null);
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentMethod[]>(['paystack', 'momo']);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('paystack');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [orderExpiry, setOrderExpiry] = useState<Date | null>(null);
@@ -53,6 +55,35 @@ const CheckoutPage: React.FC = () => {
       navigate('/events');
       return;
     }
+
+    // Fetch event details to get payment method settings
+    const fetchEventDetails = async () => {
+      if (items.length > 0) {
+        try {
+          const response = await fetch(`/api/events/${items[0].eventId}`);
+          const data = await response.json();
+          if (data.success && data.data) {
+            setEvent(data.data);
+            
+            // Filter available payment methods based on event settings
+            const methods: PaymentMethod[] = [];
+            if (data.data.enable_momo !== false) methods.push('momo');
+            if (data.data.enable_paystack !== false) methods.push('paystack');
+            
+            setAvailablePaymentMethods(methods);
+            
+            // Set default payment method to first available
+            if (methods.length > 0) {
+              setPaymentMethod(methods[0]);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch event details:', error);
+        }
+      }
+    };
+    
+    fetchEventDetails();
 
     // Set order expiry time (10 minutes from now)
     const expiryTime = new Date(Date.now() + 10 * 60 * 1000);
@@ -383,31 +414,39 @@ const CheckoutPage: React.FC = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-3">
-                    <label className="flex items-center space-x-3 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="paystack"
-                        checked={paymentMethod === 'paystack'}
-                        onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                        className="text-blue-600"
-                      />
-                      <CreditCard className="h-5 w-5" />
-                      <span>Card Payment (Paystack)</span>
-                    </label>
+                    {availablePaymentMethods.includes('paystack') && (
+                      <label className="flex items-center space-x-3 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="paystack"
+                          checked={paymentMethod === 'paystack'}
+                          onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                          className="text-blue-600"
+                        />
+                        <CreditCard className="h-5 w-5" />
+                        <span>Card Payment (Paystack)</span>
+                      </label>
+                    )}
                     
-                    <label className="flex items-center space-x-3 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="momo"
-                        checked={paymentMethod === 'momo'}
-                        onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                        className="text-blue-600"
-                      />
-                      <Smartphone className="h-5 w-5" />
-                      <span>Mobile Money</span>
-                    </label>
+                    {availablePaymentMethods.includes('momo') && (
+                      <label className="flex items-center space-x-3 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="momo"
+                          checked={paymentMethod === 'momo'}
+                          onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                          className="text-blue-600"
+                        />
+                        <Smartphone className="h-5 w-5" />
+                        <span>Mobile Money</span>
+                      </label>
+                    )}
+                    
+                    {availablePaymentMethods.length === 0 && (
+                      <p className="text-sm text-gray-500">No payment methods available for this event.</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
