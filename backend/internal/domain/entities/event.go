@@ -40,6 +40,8 @@ type Event struct {
 	SaleEnd         *time.Time             `json:"sale_end,omitempty" db:"sale_end"`
 	Settings        JSONB                  `json:"settings" db:"settings"`
 	Currency        *string                `json:"currency,omitempty" db:"currency"`
+	EnableMomo      bool                   `json:"enable_momo" db:"enable_momo"`
+	EnablePaystack  bool                   `json:"enable_paystack" db:"enable_paystack"`
 	CreatedAt       time.Time              `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time              `json:"updated_at" db:"updated_at"`
 	IsActive        bool                   `json:"is_active" db:"is_active"`
@@ -56,22 +58,24 @@ type Event struct {
 func NewEvent(organizerID uuid.UUID, name, slug string, eventDate time.Time, venueName, venueAddress, venueCity, venueCountry string) *Event {
 	orgID := organizerID
 	vcountry := venueCountry
-	return &Event{
-		ID:           uuid.New(),
-		OrganizerID:  &orgID,
-		Name:         name,
-		Slug:         slug,
-		EventDate:    eventDate,
-		VenueName:    venueName,
-		VenueAddress: venueAddress,
-		VenueCity:    venueCity,
-		VenueCountry: &vcountry,
-		Status:       EventStatusDraft,
-		Settings:     make(map[string]interface{}),
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-		IsActive:     true,
-	}
+		return &Event{
+			ID:             uuid.New(),
+			OrganizerID:    &orgID,
+			Name:           name,
+			Slug:           slug,
+			EventDate:      eventDate,
+			VenueName:      venueName,
+			VenueAddress:   venueAddress,
+			VenueCity:      venueCity,
+			VenueCountry:   &vcountry,
+			Status:         EventStatusDraft,
+			Settings:       make(map[string]interface{}),
+			EnableMomo:     true,  // Enable MoMo by default
+			EnablePaystack: true,  // Enable Paystack by default
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+			IsActive:       true,
+		}
 }
 
 // IsOnSale checks if the event is currently on sale

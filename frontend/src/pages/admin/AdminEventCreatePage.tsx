@@ -54,7 +54,9 @@ const AdminEventCreatePage: React.FC = () => {
         quantity: '1500',
         maxPerOrder: 4
       }
-    ]
+    ],
+    enableMomo: true,
+    enablePaystack: true
   })
 
   // Fetch categories on component mount
@@ -487,6 +489,52 @@ const AdminEventCreatePage: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Payment Methods */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">Payment Methods</h2>
+          <p className="text-sm text-gray-600 mb-4">Select which payment methods customers can use for this event</p>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="flex-1">
+                <h3 className="font-medium">MoMo PSB Payment</h3>
+                <p className="text-sm text-gray-600">Enable mobile money payments via MoMo PSB</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={eventData.enableMomo}
+                  onChange={(e) => handleInputChange('enableMomo', e.target.checked)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="flex-1">
+                <h3 className="font-medium">Paystack Payment</h3>
+                <p className="text-sm text-gray-600">Enable card and bank payments via Paystack</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={eventData.enablePaystack}
+                  onChange={(e) => handleInputChange('enablePaystack', e.target.checked)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+          </div>
+          
+          {!eventData.enableMomo && !eventData.enablePaystack && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-sm text-yellow-800">⚠️ Warning: At least one payment method should be enabled for customers to purchase tickets.</p>
+            </div>
+          )}
         </div>
 
         {/* Submit Buttons */}
