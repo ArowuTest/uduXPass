@@ -9,21 +9,41 @@ import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Html5Qrcode } from 'html5-qrcode';
 import { scannerApi, ScanningSession } from '@/lib/api';
-import { ArrowLeft, Info } from 'lucide-react';
+import { ArrowLeft, Info, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { isOnline } from '@/lib/registerServiceWorker';
+import { validateTicketOffline, shouldUseOfflineValidation } from '@/lib/offlineValidation';
 
 export default function Scanner() {
   const [, setLocation] = useLocation();
   const [activeSession, setActiveSession] = useState<ScanningSession | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [offline, setOffline] = useState(!isOnline());
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const scannerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadActiveSession();
+    
+    // Listen for online/offline events
+    const handleOnline = () => {
+      setOffline(false);
+      toast.success('Back online - Syncing data...');
+    };
+    
+    const handleOffline = () => {
+      setOffline(true);
+      toast.warning('Offline mode - Validations will sync when online');
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
     return () => {
       stopScanner();
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -91,24 +111,45 @@ export default function Scanner() {
     }
 
     try {
-      const result = await scannerApi.validateTicket({
-        qr_code_data: decodedText,
-        session_id: activeSession.id,
-      });
+      let result;
+      
+      // Check if offline - use offline validation
+      if (shouldUseOfflineValidation()) {
+        console.log('[Scanner] Using offline validation');
+        result = await validateTicketOffline(decodedText, activeSession.id);
+        
+        // Show offline indicator
+        if (result.offline) {
+          toast.info('Offline mode - Validation will sync when online');
+        }
+      } else {
+        // Online - use API validation
+        console.log('[Scanner] Using online validation');
+        result = await scannerApi.validateTicket({
+          qr_code_data: decodedText,
+          session_id: activeSession.id,
+        });
+      }
 
-      // Backend returns: { success: boolean, message: string, data: { ticket: {...}, validated_at: ... } }
+      // Handle validation result
       if (result.success) {
         setLocation('/validation-success', { 
           state: { 
-            ticket: result.data?.ticket,
-            message: result.message || 'Ticket validated successfully'
+            ticket: result.data?.ticket || result.ticket,
+            message: result.message || 'Ticket validated successfully',
+            offline: result.offline || false
           } 
         });
       } else {
+        // Determine error type for different screens
+        const errorType = result.error;
+        
         setLocation('/validation-error', { 
           state: { 
             message: result.error || result.message || 'Invalid ticket',
-            ticket: result.data?.ticket 
+            ticket: result.data?.ticket || result.ticket,
+            errorType: errorType,
+            offline: result.offline || false
           } 
         });
       }
@@ -117,7 +158,8 @@ export default function Scanner() {
       const errorMessage = error.response?.data?.error || error.message || 'Failed to validate ticket';
       setLocation('/validation-error', { 
         state: { 
-          message: errorMessage
+          message: errorMessage,
+          errorType: 'SYSTEM_ERROR'
         } 
       });
       // Restart scanner on error
@@ -154,7 +196,15 @@ export default function Scanner() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <h1 className="font-semibold text-lg">Scan Ticket</h1>
+        <div className="flex flex-col items-center">
+          <h1 className="font-semibold text-lg">Scan Ticket</h1>
+          {offline && (
+            <div className="flex items-center gap-1 text-xs text-yellow-300">
+              <WifiOff className="h-3 w-3" />
+              <span>Offline Mode</span>
+            </div>
+          )}
+        </div>
         <Button
           variant="ghost"
           size="sm"
