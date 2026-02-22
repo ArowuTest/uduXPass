@@ -1,0 +1,623 @@
+package postgres
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
+	"github.com/uduxpass/backend/internal/domain/entities"
+	"github.com/uduxpass/backend/internal/domain/repositories"
+)
+
+type otpTokenRepository struct {
+	db interface {
+		ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+		GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+		SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+		NamedExecContext(ctx context.Context, query string, arg interface{}) (sql.Result, error)
+	}
+}
+
+func NewOTPTokenRepository(db *sqlx.DB) repositories.OTPTokenRepository {
+	return &otpTokenRepository{db: db}
+}
+
+func NewOTPTokenRepositoryWithTx(tx *sqlx.Tx) repositories.OTPTokenRepository {
+	return &otpTokenRepository{db: tx}
+}
+
+func (r *otpTokenRepository) Create(ctx context.Context, token *entities.OTPToken) error {
+	query := `
+		INSERT INTO otp_tokens (
+			id, identifier, token, purpose, expires_at, 
+			attempts, max_attempts, is_used, created_at
+		) VALUES (
+			:id, :identifier, :token, :purpose, :expires_at,
+			:attempts, :max_attempts, :is_used, :created_at
+		)`
+	
+	_, err := r.db.NamedExecContext(ctx, query, token)
+	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok {
+			switch pqErr.Code {
+			case "23505": // unique_violation
+				return entities.ErrConflictError
+			case "23514": // check_constraint_violation
+				return entities.ErrValidationError
+			}
+		}
+		return fmt.Errorf("failed to create OTP token: %w", err)
+	}
+	
+	return nil
+}
+
+func (r *otpTokenRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.OTPToken, error) {
+	var token entities.OTPToken
+	query := `
+		SELECT id, identifier, token, purpose, expires_at,
+			   attempts, max_attempts, is_used, created_at
+		FROM otp_tokens
+		WHERE id = $1`
+	
+	err := r.db.GetContext(ctx, &token, query, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, entities.ErrOTPTokenNotFound
+		}
+		return nil, fmt.Errorf("failed to get OTP token by ID: %w", err)
+	}
+	
+	return &token, nil
+}
+
+func (r *otpTokenRepository) GetByIdentifierAndPurpose(ctx context.Context, identifier string, purpose entities.OTPPurpose) (*entities.OTPToken, error) {
+	var token entities.OTPToken
+	query := `
+		SELECT id, identifier, token, purpose, expires_at,
+			   attempts, max_attempts, is_used, created_at
+		FROM otp_tokens
+		WHERE identifier = $1 AND purpose = $2 
+		AND expires_at > NOW() AND is_used = false
+		ORDER BY created_at DESC
+		LIMIT 1`
+	
+	err := r.db.GetContext(ctx, &token, query, identifier, purpose)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, entities.ErrOTPTokenNotFound
+		}
+		return nil, fmt.Errorf("failed to get OTP token by identifier and purpose: %w", err)
+	}
+	
+	return &token, nil
+}
+
+func (r *otpTokenRepository) GetByToken(ctx context.Context, tokenValue string) (*entities.OTPToken, error) {
+	var token entities.OTPToken
+	query := `
+		SELECT id, identifier, token, purpose, expires_at,
+			   attempts, max_attempts, is_used, created_at
+		FROM otp_tokens
+		WHERE token = $1 AND expires_at > NOW() AND is_used = false`
+	
+	err := r.db.GetContext(ctx, &token, query, tokenValue)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, entities.ErrOTPTokenNotFound
+		}
+		return nil, fmt.Errorf("failed to get OTP token by token value: %w", err)
+	}
+	
+	return &token, nil
+}
+
+func (r *otpTokenRepository) Update(ctx context.Context, token *entities.OTPToken) error {
+	query := `
+		UPDATE otp_tokens SET
+			identifier = :identifier,
+			token = :token,
+			purpose = :purpose,
+			expires_at = :expires_at,
+			attempts = :attempts,
+			max_attempts = :max_attempts,
+			is_used = :is_used
+		WHERE id = :id`
+	
+	result, err := r.db.NamedExecContext(ctx, query, token)
+	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok {
+			switch pqErr.Code {
+			case "23505": // unique_violation
+				return entities.ErrConflictError
+			case "23514": // check_constraint_violation
+				return entities.ErrValidationError
+			}
+		}
+		return fmt.Errorf("failed to update OTP token: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return entities.ErrOTPTokenNotFound
+	}
+	
+	return nil
+}
+
+func (r *otpTokenRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	query := `DELETE FROM otp_tokens WHERE id = $1`
+	
+	result, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete OTP token: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return entities.ErrOTPTokenNotFound
+	}
+	
+	return nil
+}
+
+func (r *otpTokenRepository) DeleteByIdentifier(ctx context.Context, identifier string) error {
+	query := `DELETE FROM otp_tokens WHERE identifier = $1`
+	
+	_, err := r.db.ExecContext(ctx, query, identifier)
+	if err != nil {
+		return fmt.Errorf("failed to delete OTP tokens by identifier: %w", err)
+	}
+	
+	return nil
+}
+
+func (r *otpTokenRepository) DeleteByIdentifierAndPurpose(ctx context.Context, identifier string, purpose entities.OTPPurpose) error {
+	query := `DELETE FROM otp_tokens WHERE identifier = $1 AND purpose = $2`
+	
+	_, err := r.db.ExecContext(ctx, query, identifier, purpose)
+	if err != nil {
+		return fmt.Errorf("failed to delete OTP tokens by identifier and purpose: %w", err)
+	}
+	
+	return nil
+}
+
+func (r *otpTokenRepository) List(ctx context.Context, filter repositories.OTPTokenFilter) ([]*entities.OTPToken, *repositories.PaginationResult, error) {
+	var tokens []*entities.OTPToken
+	var totalCount int
+	
+	// Build WHERE clause
+	whereConditions := []string{}
+	args := []interface{}{}
+	argIndex := 1
+	
+	if filter.Identifier != nil && *filter.Identifier != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf("identifier = $%d", argIndex))
+		args = append(args, *filter.Identifier)
+		argIndex++
+	}
+	
+	if filter.Purpose != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("purpose = $%d", argIndex))
+		args = append(args, *filter.Purpose)
+		argIndex++
+	}
+	
+	if filter.IsUsed != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("is_used = $%d", argIndex))
+		args = append(args, *filter.IsUsed)
+		argIndex++
+	}
+	
+	if filter.ExpiredOnly != nil && *filter.ExpiredOnly {
+		whereConditions = append(whereConditions, "expires_at <= NOW()")
+	}
+	
+	if filter.ActiveOnly != nil && *filter.ActiveOnly {
+		whereConditions = append(whereConditions, "expires_at > NOW() AND is_used = false")
+	}
+	
+	if filter.CreatedFrom != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("created_at >= $%d", argIndex))
+		args = append(args, *filter.CreatedFrom)
+		argIndex++
+	}
+	
+	if filter.CreatedTo != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("created_at <= $%d", argIndex))
+		args = append(args, *filter.CreatedTo)
+		argIndex++
+	}
+	
+	if filter.ExpiresFrom != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("expires_at >= $%d", argIndex))
+		args = append(args, *filter.ExpiresFrom)
+		argIndex++
+	}
+	
+	if filter.ExpiresTo != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("expires_at <= $%d", argIndex))
+		args = append(args, *filter.ExpiresTo)
+		argIndex++
+	}
+	
+	whereClause := ""
+	if len(whereConditions) > 0 {
+		whereClause = "WHERE " + strings.Join(whereConditions, " AND ")
+	}
+	
+	// Count total records
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM otp_tokens %s`, whereClause)
+	
+	err := r.db.GetContext(ctx, &totalCount, countQuery, args...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to count OTP tokens: %w", err)
+	}
+	
+	// Build ORDER BY clause
+	orderBy := "created_at DESC"
+	if filter.SortBy != nil && *filter.SortBy != "" {
+		direction := "ASC"
+		if filter.SortOrder != nil && *filter.SortOrder == "desc" {
+			direction = "DESC"
+		}
+		orderBy = fmt.Sprintf("%s %s", *filter.SortBy, direction)
+	}
+	
+	// Build main query with pagination
+	var offset int
+	var limit int = 50 // default limit
+	
+	if filter.Page != nil && filter.Limit != nil {
+		offset = (*filter.Page - 1) * *filter.Limit
+		limit = *filter.Limit
+	} else if filter.Limit != nil {
+		limit = *filter.Limit
+		query := fmt.Sprintf(`
+		SELECT id, identifier, token, purpose, expires_at,
+			   attempts, max_attempts, is_used, created_at
+		FROM otp_tokens
+		%s 
+		ORDER BY %s 
+		LIMIT $%d OFFSET $%d`, whereClause, orderBy, argIndex, argIndex+1)
+	
+	args = append(args, limit, offset)
+	
+	err = r.db.SelectContext(ctx, &tokens, query, args...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to list OTP tokens: %w", err)
+	}
+	
+	// Calculate pagination
+	totalPages := (totalCount + limit - 1) / limit
+	currentPage := 1
+	if filter.Page != nil {
+		currentPage = *filter.Page
+	}
+	
+	paginationResult := &repositories.PaginationResult{
+		TotalCount:  totalCount,
+		TotalPages:  totalPages,
+		CurrentPage: currentPage,
+		HasNext:     currentPage < totalPages,
+		HasPrev:     currentPage > 1,
+	}
+	
+	return tokens, paginationResult, nil
+}
+
+// Exists checks if an OTP token exists by ID
+func (r *otpTokenRepository) Exists(ctx context.Context, id uuid.UUID) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM otp_tokens WHERE id = $1)`
+	
+	err := r.db.GetContext(ctx, &exists, query, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to check OTP token existence: %w", err)
+	}
+	
+	return exists, nil
+}
+
+func (r *otpTokenRepository) ExistsByToken(ctx context.Context, tokenValue string) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM otp_tokens WHERE token = $1)`
+	
+	err := r.db.GetContext(ctx, &exists, query, tokenValue)
+	if err != nil {
+		return false, fmt.Errorf("failed to check OTP token value existence: %w", err)
+	}
+	
+	return exists, nil
+}
+
+func (r *otpTokenRepository) MarkAsUsed(ctx context.Context, tokenID uuid.UUID) error {
+	query := `
+		UPDATE otp_tokens 
+		SET is_used = true
+		WHERE id = $1 AND is_used = false AND expires_at > NOW()`
+	
+	result, err := r.db.ExecContext(ctx, query, tokenID)
+	if err != nil {
+		return fmt.Errorf("failed to mark OTP token as used: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return entities.ErrOTPTokenExpiredOrUsed
+	}
+	
+	return nil
+}
+
+func (r *otpTokenRepository) IncrementAttempts(ctx context.Context, tokenID uuid.UUID) error {
+	query := `
+		UPDATE otp_tokens 
+		SET attempts = attempts + 1
+		WHERE id = $1`
+	
+	result, err := r.db.ExecContext(ctx, query, tokenID)
+	if err != nil {
+		return fmt.Errorf("failed to increment OTP token attempts: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return entities.ErrOTPTokenNotFound
+	}
+	
+	return nil
+}
+
+func (r *otpTokenRepository) CleanupExpired(ctx context.Context) (int, error) {
+	query := `DELETE FROM otp_tokens WHERE expires_at <= NOW()`
+	
+	result, err := r.db.ExecContext(ctx, query)
+	if err != nil {
+		return 0, fmt.Errorf("failed to cleanup expired OTP tokens: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	return int(rowsAffected), nil
+}
+
+func (r *otpTokenRepository) CleanupUsed(ctx context.Context) (int, error) {
+	query := `DELETE FROM otp_tokens WHERE is_used = true`
+	
+	result, err := r.db.ExecContext(ctx, query)
+	if err != nil {
+		return 0, fmt.Errorf("failed to cleanup used OTP tokens: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	return int(rowsAffected), nil
+}
+
+func (r *otpTokenRepository) GetExpired(ctx context.Context, filter repositories.OTPTokenFilter) ([]*entities.OTPToken, *repositories.PaginationResult, error) {
+	filter.ExpiredOnly = true
+	return r.List(ctx, filter)
+}
+
+func (r *otpTokenRepository) GetActive(ctx context.Context, filter repositories.OTPTokenFilter) ([]*entities.OTPToken, *repositories.PaginationResult, error) {
+	filter.ActiveOnly = true
+	return r.List(ctx, filter)
+}
+
+func (r *otpTokenRepository) GetByPurpose(ctx context.Context, purpose entities.OTPPurpose, filter repositories.OTPTokenFilter) ([]*entities.OTPToken, *repositories.PaginationResult, error) {
+	filter.Purpose = &purpose
+	return r.List(ctx, filter)
+}
+
+func (r *otpTokenRepository) ValidateToken(ctx context.Context, identifier string, tokenValue string, purpose entities.OTPPurpose) (*repositories.OTPValidationResult, error) {
+	var result repositories.OTPValidationResult
+	
+	query := `
+		SELECT 
+			id,
+			identifier,
+			token,
+			purpose,
+			expires_at,
+			attempts,
+			max_attempts,
+			is_used,
+			created_at,
+			CASE 
+				WHEN is_used = true THEN false
+				WHEN expires_at <= NOW() THEN false
+				WHEN attempts >= max_attempts THEN false
+				WHEN token != $2 THEN false
+				ELSE true
+			END as is_valid,
+			CASE 
+				WHEN is_used = true THEN 'Token already used'
+				WHEN expires_at <= NOW() THEN 'Token expired'
+				WHEN attempts >= max_attempts THEN 'Maximum attempts exceeded'
+				WHEN token != $2 THEN 'Invalid token'
+				ELSE 'Valid token'
+			END as validation_message
+		FROM otp_tokens
+		WHERE identifier = $1 AND purpose = $3
+		ORDER BY created_at DESC
+		LIMIT 1`
+	
+	err := r.db.GetContext(ctx, &result, query, identifier, tokenValue, purpose)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return &repositories.OTPValidationResult{
+				IsValid:           false,
+				ValidationMessage: "Token not found",
+			}, nil
+		}
+		return nil, fmt.Errorf("failed to validate OTP token: %w", err)
+	}
+	
+	return &result, nil
+}
+
+func (r *otpTokenRepository) GetStats(ctx context.Context, filter repositories.OTPTokenFilter) (*repositories.OTPTokenStats, error) {
+	var stats repositories.OTPTokenStats
+	
+	// Build WHERE clause for stats
+	whereConditions := []string{}
+	args := []interface{}{}
+	argIndex := 1
+	
+	if filter.Identifier != nil && *filter.Identifier != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf("identifier = $%d", argIndex))
+		args = append(args, *filter.Identifier)
+		argIndex++
+	}
+	
+	if filter.Purpose != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("purpose = $%d", argIndex))
+		args = append(args, *filter.Purpose)
+		argIndex++
+	}
+	
+	if filter.CreatedFrom != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("created_at >= $%d", argIndex))
+		args = append(args, *filter.CreatedFrom)
+		argIndex++
+	}
+	
+	if filter.CreatedTo != nil {
+		whereConditions = append(whereConditions, fmt.Sprintf("created_at <= $%d", argIndex))
+		args = append(args, *filter.CreatedTo)
+		argIndex++
+	}
+	
+	whereClause := ""
+	if len(whereConditions) > 0 {
+		whereClause = "WHERE " + strings.Join(whereConditions, " AND ")
+	}
+	
+	query := fmt.Sprintf(`
+		SELECT 
+			COALESCE(COUNT(*), 0) as total_tokens,
+			COALESCE(COUNT(CASE WHEN is_used = true THEN 1 END), 0) as used_tokens,
+			COALESCE(COUNT(CASE WHEN expires_at <= NOW() THEN 1 END), 0) as expired_tokens,
+			COALESCE(COUNT(CASE WHEN expires_at > NOW() AND is_used = false THEN 1 END), 0) as active_tokens,
+			COALESCE(COUNT(CASE WHEN attempts >= max_attempts THEN 1 END), 0) as max_attempts_reached,
+			COALESCE(COUNT(DISTINCT identifier), 0) as unique_identifiers,
+			COALESCE(COUNT(DISTINCT purpose), 0) as unique_purposes,
+			COALESCE(AVG(attempts), 0) as avg_attempts,
+			COALESCE(MIN(attempts), 0) as min_attempts,
+			COALESCE(MAX(attempts), 0) as max_attempts_used,
+			MIN(created_at) as first_token_created_at,
+			MAX(created_at) as last_token_created_at,
+			MIN(CASE WHEN expires_at > NOW() AND is_used = false THEN expires_at END) as next_expiry_at,
+			ROUND(
+				CASE 
+					WHEN COUNT(*) > 0 THEN 
+						(COUNT(CASE WHEN is_used = true THEN 1 END)::float / COUNT(*)::float) * 100
+					ELSE 0 
+				END, 2
+			) as usage_rate
+		FROM otp_tokens
+		%s`, whereClause)
+	
+	err := r.db.GetContext(ctx, &stats, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get OTP token stats: %w", err)
+	}
+	
+	return &stats, nil
+}
+
+// CleanupExpiredTokens removes expired tokens and returns the count of deleted tokens
+func (r *otpTokenRepository) CleanupExpiredTokens(ctx context.Context) (int, error) {
+	query := `
+		DELETE FROM otp_tokens 
+		WHERE expires_at < NOW() OR status = 'expired'`
+	
+	result, err := r.db.ExecContext(ctx, query)
+	if err != nil {
+		return 0, fmt.Errorf("failed to cleanup expired tokens: %w", err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+	
+	return int(rowsAffected), nil
+}
+
+
+// CountActiveTokensByPhone counts active tokens for a phone number
+func (r *otpTokenRepository) CountActiveTokensByPhone(ctx context.Context, phone string) (int, error) {
+	var count int
+	query := `
+		SELECT COUNT(*) 
+		FROM otp_tokens 
+		WHERE phone = $1 AND status = 'active' AND expires_at > NOW()`
+	
+	err := r.db.GetContext(ctx, &count, query, phone)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count active tokens by phone: %w", err)
+	}
+	
+	return count, nil
+}
+
+
+// CountTokensByPhoneAndTimeRange counts tokens for a phone in a time range
+func (r *otpTokenRepository) CountTokensByPhoneAndTimeRange(ctx context.Context, phone string, start, end time.Time) (int, error) {
+	var count int
+	query := `
+		SELECT COUNT(*) 
+		FROM otp_tokens 
+		WHERE phone = $1 AND created_at >= $2 AND created_at <= $3`
+	
+	err := r.db.GetContext(ctx, &count, query, phone, start, end)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count tokens by phone and time range: %w", err)
+	}
+	
+	return count, nil
+}
+
+
+// DeleteByPhone deletes all OTP tokens for a phone number
+func (r *otpTokenRepository) DeleteByPhone(ctx context.Context, phone string) error {
+	query := `DELETE FROM otp_tokens WHERE phone = $1`
+	
+	_, err := r.db.ExecContext(ctx, query, phone)
+	if err != nil {
+		return fmt.Errorf("failed to delete OTP tokens by phone: %w", err)
+	}
+	
+	return nil
+}
+

@@ -1,0 +1,33 @@
+# Binaries
+*.exe
+uduxpass-api
+uduxpass-api.exe
+
+# Test binary
+*.test
+*.out
+
+# Dependencies
+vendor/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Temporary
+tmp/
+temp/
+
+# Database
+*.db
+*.sqlite
+
+# Debug
+debug

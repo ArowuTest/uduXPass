@@ -1,0 +1,13 @@
+INSERT INTO scanner_users (id, username, password_hash, first_name, last_name, email, phone, assigned_event_ids, role, status, is_active, created_at, updated_at)
+VALUES
+    ('44444444-4444-4444-4444-444444444444'::uuid, 'scanner_lagos_1', '$2b$12$G.9QoOWJnV1sT3bJj4qwEe8TSZPZu9K//MAdX88XqOt9l.wxMdFfy', 'John', 'Okafor', 'john.okafor@uduxpass.com', '+234-801-111-2222', ARRAY['f6a7b8c9-d0e1-9f0a-3b4c-5d6e7f8a9b0c']::uuid[], 'scanner', 'active', true, NOW(), NOW()),
+    ('55555555-5555-5555-5555-555555555555'::uuid, 'scanner_lagos_2', '$2b$12$G.9QoOWJnV1sT3bJj4qwEe8TSZPZu9K//MAdX88XqOt9l.wxMdFfy', 'Amina', 'Mohammed', 'amina.mohammed@uduxpass.com', '+234-802-222-3333', ARRAY['f6a7b8c9-d0e1-9f0a-3b4c-5d6e7f8a9b0c', 'e1f2a3b4-c5d6-4e5f-8a9b-0c1d2e3f4a5b']::uuid[], 'scanner', 'active', true, NOW(), NOW()),
+    ('66666666-6666-6666-6666-666666666666'::uuid, 'scanner_abuja_1', '$2b$12$G.9QoOWJnV1sT3bJj4qwEe8TSZPZu9K//MAdX88XqOt9l.wxMdFfy', 'Chidi', 'Nwosu', 'chidi.nwosu@uduxpass.com', '+234-803-333-4444', ARRAY['a7b8c9d0-e1f2-0a1b-4c5d-6e7f8a9b0c1d', 'f2a3b4c5-d6e7-5f6a-9b0c-1d2e3f4a5b6c']::uuid[], 'scanner', 'active', true, NOW(), NOW()),
+    ('77777777-7777-7777-7777-777777777777'::uuid, 'scanner_supervisor', '$2b$12$G.9QoOWJnV1sT3bJj4qwEe8TSZPZu9K//MAdX88XqOt9l.wxMdFfy', 'Blessing', 'Adeyemi', 'blessing.adeyemi@uduxpass.com', '+234-804-444-5555', ARRAY[]::uuid[], 'supervisor', 'active', true, NOW(), NOW());
+INSERT INTO users (id, email, password_hash, first_name, last_name, phone, auth_provider, email_verified, phone_verified, is_active, created_at, updated_at)
+VALUES
+    ('88888888-8888-8888-8888-888888888888'::uuid, 'adeola.williams@gmail.com', '$2b$12$fj2PsXNIFtv6sJb4WYp1t.6QIl2jKcOPFF7HhKoS6rf.Pic22.Vra', 'Adeola', 'Williams', '+234-901-111-1111', 'email', true, true, true, NOW(), NOW()),
+    ('99999999-9999-9999-9999-999999999999'::uuid, 'tunde.bakare@yahoo.com', '$2b$12$fj2PsXNIFtv6sJb4WYp1t.6QIl2jKcOPFF7HhKoS6rf.Pic22.Vra', 'Tunde', 'Bakare', '+234-902-222-2222', 'email', true, false, true, NOW(), NOW()),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'chioma.okonkwo@outlook.com', '$2b$12$fj2PsXNIFtv6sJb4WYp1t.6QIl2jKcOPFF7HhKoS6rf.Pic22.Vra', 'Chioma', 'Okonkwo', '+234-903-333-3333', 'email', true, true, true, NOW(), NOW()),
+    ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, 'yusuf.ibrahim@gmail.com', '$2b$12$fj2PsXNIFtv6sJb4WYp1t.6QIl2jKcOPFF7HhKoS6rf.Pic22.Vra', 'Yusuf', 'Ibrahim', '+234-904-444-4444', 'email', true, true, true, NOW(), NOW()),
+    ('cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid, 'ngozi.eze@hotmail.com', '$2b$12$fj2PsXNIFtv6sJb4WYp1t.6QIl2jKcOPFF7HhKoS6rf.Pic22.Vra', 'Ngozi', 'Eze', '+234-905-555-5555', 'email', false, false, true, NOW(), NOW());
