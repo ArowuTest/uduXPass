@@ -11,7 +11,7 @@ type EmailService interface {
 	SendTicketEmail(ctx context.Context, order *entities.Order, tickets []*entities.Ticket) error
 	
 	// SendTicketPDFEmail sends ticket PDFs to the customer
-	SendTicketPDFEmail(ctx context.Context, order *entities.Order, tickets []*entities.Ticket, event *entities.Event) error
+	SendTicketPDFEmail(ctx context.Context, order *entities.Order, tickets []*entities.Ticket, orderLines []*entities.OrderLine, event *entities.Event) error
 	
 	// SendOrderConfirmation sends order confirmation email
 	SendOrderConfirmation(ctx context.Context, order *entities.Order) error

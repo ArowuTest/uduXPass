@@ -10,7 +10,8 @@ import (
 )
 
 // SendTicketPDFEmail sends ticket PDFs to the customer
-func (s *SMTPEmailService) SendTicketPDFEmail(ctx context.Context, order *entities.Order, tickets []*entities.Ticket, event *entities.Event) error {
+// Note: tickets must have OrderLine relation preloaded with TicketTier
+func (s *SMTPEmailService) SendTicketPDFEmail(ctx context.Context, order *entities.Order, tickets []*entities.Ticket, orderLines []*entities.OrderLine, event *entities.Event) error {
 	subject := fmt.Sprintf("Your Tickets for %s - Order %s", event.Name, order.Code)
 
 	// Generate PDF for each ticket
@@ -18,16 +19,29 @@ func (s *SMTPEmailService) SendTicketPDFEmail(ctx context.Context, order *entiti
 	attachments := make([]EmailAttachment, 0, len(tickets))
 
 	for i, ticket := range tickets {
+		// Find the corresponding order line for this ticket
+		var orderLine *entities.OrderLine
+		for _, ol := range orderLines {
+			if ol.ID == ticket.OrderLineID {
+				orderLine = ol
+				break
+			}
+		}
+		
+		if orderLine == nil || orderLine.TicketTier == nil {
+			return fmt.Errorf("order line or ticket tier not found for ticket %s", ticket.ID.String())
+		}
+		
 		// Prepare ticket data
 		ticketData := pdf.TicketData{
-			TicketID:      ticket.ID,
+			TicketID:      ticket.ID.String(),
 			QRCode:        ticket.SerialNumber,
 			EventName:     event.Name,
 			EventDate:     event.EventDate,
 			VenueName:     event.VenueName,
 			VenueAddress:  event.VenueAddress,
-			TierName:      ticket.TierName,
-			Price:         ticket.Price,
+			TierName:      orderLine.TicketTier.Name,
+			Price:         orderLine.TicketTier.Price,
 			CustomerName:  order.CustomerFirstName + " " + order.CustomerLastName,
 			CustomerEmail: order.CustomerEmail,
 			OrderID:       order.Code,
@@ -38,7 +52,7 @@ func (s *SMTPEmailService) SendTicketPDFEmail(ctx context.Context, order *entiti
 		// Generate PDF
 		pdfBytes, err := pdfGenerator.GenerateTicketPDF(ticketData)
 		if err != nil {
-			return fmt.Errorf("failed to generate PDF for ticket %s: %w", ticket.ID, err)
+			return fmt.Errorf("failed to generate PDF for ticket %s: %w", ticket.ID.String(), err)
 		}
 
 		// Add to attachments

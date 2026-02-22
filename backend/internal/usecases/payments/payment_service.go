@@ -423,19 +423,33 @@ func (s *PaymentService) generateTickets(ctx context.Context, tx repositories.Tr
 		return fmt.Errorf("failed to create tickets: %w", err)
 	}
 	
-	// Send ticket PDF email to customer (async - don't fail if email fails)
-	go func() {
-		// Fetch event for PDF generation
-		event, err := tx.Events().GetByID(context.Background(), order.EventID)
-		if err != nil {
-			fmt.Printf("Warning: failed to fetch event for order %s: %v\n", order.Code, err)
-			return
-		}
-		
-		if err := s.emailService.SendTicketPDFEmail(context.Background(), order, tickets, event); err != nil {
-			fmt.Printf("Warning: failed to send ticket PDF email for order %s: %v\n", order.Code, err)
-		}
-	}()
+		// Send ticket PDF email to customer (async - don't fail if email fails)
+		go func() {
+			// Parse EventID to UUID (EventID is stored as string)
+			eventUUID, err := uuid.Parse(order.EventID)
+			if err != nil {
+				fmt.Printf("Warning: invalid event ID for order %s: %v\n", order.Code, err)
+				return
+			}
+			
+			// Fetch event for PDF generation
+			event, err := tx.Events().GetByID(context.Background(), eventUUID)
+			if err != nil {
+				fmt.Printf("Warning: failed to fetch event for order %s: %v\n", order.Code, err)
+				return
+			}
+			
+			// Fetch order lines with ticket tier information
+			orderLines, err := tx.OrderLines().GetByOrderID(context.Background(), order.ID)
+			if err != nil {
+				fmt.Printf("Warning: failed to fetch order lines for order %s: %v\n", order.Code, err)
+				return
+			}
+			
+			if err := s.emailService.SendTicketPDFEmail(context.Background(), order, tickets, orderLines, event); err != nil {
+				fmt.Printf("Warning: failed to send ticket PDF email for order %s: %v\n", order.Code, err)
+			}
+		}()
 	
 	return nil
 }
