@@ -65,8 +65,8 @@ func NewServer(config *Config, dbManager *database.DatabaseManager) *Server {
 	// Initialize services
 	jwtService := jwt.NewJWTService(
 		config.JWTSecret,
-		1*time.Hour,  // Access token TTL
-		24*time.Hour, // Refresh token TTL
+		24*time.Hour,  // Access token TTL (extended for E2E testing)
+		168*time.Hour, // Refresh token TTL (7 days)
 		"uduxpass",
 	)
 	
