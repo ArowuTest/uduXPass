@@ -188,18 +188,26 @@ const AdminEventCreatePage: React.FC = () => {
 
       // Create API payload matching backend expectations
       const createEventData = {
-        name: eventData.title, // Backend expects 'name', not 'title'
+        organizer_id: '0ef31b06-6f14-4f7b-8b33-e62320f0b9bc', // Default organizer ID
+        name: eventData.title,
+        slug: eventData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
         description: eventData.description,
-        startDate: new Date(eventData.startDate).toISOString(), // Backend expects 'startDate' in ISO format
-        venue: {
-          name: eventData.venueName, // Backend expects nested venue object
-          city: eventData.venueCity
-        },
-        ticketTiers: validTiers.map(tier => ({
+        event_date: new Date(eventData.startDate).toISOString(),
+        venue_name: eventData.venueName,
+        venue_address: eventData.venueAddress || eventData.venueName,
+        venue_city: eventData.venueCity,
+        venue_state: eventData.venueState || null,
+        venue_country: 'Nigeria',
+        venue_capacity: parseInt(eventData.capacity) || null,
+        ticket_tiers: validTiers.map(tier => ({
           name: tier.name.trim(),
           price: parseFloat(tier.price),
-          availableQuantity: parseInt(tier.quantity) || 100 // Backend expects 'availableQuantity'
-        }))
+          quantity: parseInt(tier.quantity) || 100,
+          max_per_order: tier.maxPerOrder || 10,
+          description: tier.description || ''
+        })),
+        enable_momo: eventData.enableMomo,
+        enable_paystack: eventData.enablePaystack
       }
 
       // Debug: Log the payload being sent
