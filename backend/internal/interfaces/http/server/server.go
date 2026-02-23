@@ -286,6 +286,9 @@ func (s *Server) setupRoutes() {
 			events.GET("/:id", s.handleGetEvent)
 		}
 		
+		// Public categories route
+		v1.GET("/categories", s.handleGetCategories)
+		
 		// Protected user routes
 		user := v1.Group("/user")
 		user.Use(s.authMiddleware())
@@ -679,6 +682,70 @@ func (s *Server) handleGetEvent(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    response,
+	})
+}
+
+func (s *Server) handleGetCategories(c *gin.Context) {
+	ctx := c.Request.Context()
+	
+	query := `
+		SELECT id, name, slug, description, icon, color, display_order, is_active, created_at, updated_at
+		FROM categories
+		WHERE is_active = true
+		ORDER BY display_order ASC, name ASC
+	`
+	
+	type Category struct {
+		ID           string    `db:"id" json:"id"`
+		Name         string    `db:"name" json:"name"`
+		Slug         string    `db:"slug" json:"slug"`
+		Description  *string   `db:"description" json:"description"`
+		Icon         *string   `db:"icon" json:"icon"`
+		Color        *string   `db:"color" json:"color"`
+		DisplayOrder int       `db:"display_order" json:"display_order"`
+		IsActive     bool      `db:"is_active" json:"is_active"`
+		CreatedAt    time.Time `db:"created_at" json:"created_at"`
+		UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
+	}
+	
+	rows, err := s.dbManager.GetDB().QueryContext(ctx, query)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "Failed to fetch categories",
+		})
+		return
+	}
+	defer rows.Close()
+	
+	categories := []Category{}
+	for rows.Next() {
+		var cat Category
+		err := rows.Scan(
+			&cat.ID,
+			&cat.Name,
+			&cat.Slug,
+			&cat.Description,
+			&cat.Icon,
+			&cat.Color,
+			&cat.DisplayOrder,
+			&cat.IsActive,
+			&cat.CreatedAt,
+			&cat.UpdatedAt,
+		)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"success": false,
+				"error":   "Failed to scan category",
+			})
+			return
+		}
+		categories = append(categories, cat)
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    categories,
 	})
 }
 
