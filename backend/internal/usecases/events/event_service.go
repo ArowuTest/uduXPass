@@ -487,7 +487,7 @@ func mapEventToEventInfo(event *entities.Event) *EventInfo {
 		Status:         event.Status,
 		SaleStart:      event.SaleStart,
 		SaleEnd:        event.SaleEnd,
-		Currency:       event.Currency,
+		Currency:       func() *string { s := "NGN"; return &s }(), // Hardcoded to NGN for now
 		CreatedAt:      event.CreatedAt,
 		UpdatedAt:      event.UpdatedAt,
 		IsActive:       event.IsActive,

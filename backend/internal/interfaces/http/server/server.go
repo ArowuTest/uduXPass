@@ -670,7 +670,7 @@ func (s *Server) handleGetEvent(c *gin.Context) {
 		"status":           event.Status,
 		"sale_start":       event.SaleStart,
 		"sale_end":         event.SaleEnd,
-		"currency":         event.Currency,
+			"currency":         "NGN", // Hardcoded to NGN
 		"category_id":      event.CategoryID,
 		"settings":         event.Settings,
 		"is_active":        event.IsActive,

@@ -39,7 +39,6 @@ type Event struct {
 	SaleStart       *time.Time             `json:"sale_start,omitempty" db:"sale_start"`
 	SaleEnd         *time.Time             `json:"sale_end,omitempty" db:"sale_end"`
 	Settings        JSONB                  `json:"settings" db:"settings"`
-	Currency        *string                `json:"currency,omitempty" db:"currency"`
 	EnableMomo      bool                   `json:"enable_momo" db:"enable_momo"`
 	EnablePaystack  bool                   `json:"enable_paystack" db:"enable_paystack"`
 	CreatedAt       time.Time              `json:"created_at" db:"created_at"`

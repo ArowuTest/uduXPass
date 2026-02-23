@@ -197,12 +197,12 @@ const AdminEventCreatePage: React.FC = () => {
         venue_address: eventData.venueAddress || eventData.venueName,
         venue_city: eventData.venueCity,
         venue_state: eventData.venueState || null,
-        venue_country: 'Nigeria',
-        venue_capacity: parseInt(eventData.capacity) || null,
+        venue_country: eventData.venueCountry || 'Nigeria',
+        venue_capacity: parseInt(eventData.venueCapacity) || null,
         ticket_tiers: validTiers.map(tier => ({
           name: tier.name.trim(),
           price: parseFloat(tier.price),
-          quantity: parseInt(tier.quantity) || 100,
+          quota: parseInt(tier.quantity) || 100,
           max_per_order: tier.maxPerOrder || 10,
           description: tier.description || ''
         })),

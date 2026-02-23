@@ -36,11 +36,11 @@ func (r *ticketTierRepository) Create(ctx context.Context, tier *entities.Ticket
 		INSERT INTO ticket_tiers (
 			id, event_id, name, description, price, currency, 
 			quota, max_per_order, sale_start, sale_end, 
-			is_active, position, meta_info, created_at, updated_at
+			is_active, position, created_at, updated_at
 		) VALUES (
 			:id, :event_id, :name, :description, :price, :currency,
 			:quota, :max_per_order, :sale_start, :sale_end,
-			:is_active, :position, :meta_info, :created_at, :updated_at
+			:is_active, :position, :created_at, :updated_at
 		)`
 	
 	_, err := r.db.NamedExecContext(ctx, query, tier)

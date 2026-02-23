@@ -32,20 +32,20 @@ func NewEventRepositoryWithTx(tx *sqlx.Tx) repositories.EventRepository {
 }
 
 func (r *eventRepository) Create(ctx context.Context, event *entities.Event) error {
-	query := `
-		INSERT INTO events (
-			id, organizer_id, category_id, name, slug, description, 
-			event_date, doors_open, venue_name, venue_address, 
-			venue_city, venue_state, venue_country, venue_capacity, 
-			event_image_url, status, sale_start, sale_end, 
-			settings, currency, is_active, created_at, updated_at
-		) VALUES (
-			:id, :organizer_id, :category_id, :name, :slug, :description,
-			:event_date, :doors_open, :venue_name, :venue_address,
-			:venue_city, :venue_state, :venue_country, :venue_capacity,
-			:event_image_url, :status, :sale_start, :sale_end,
-			:settings, :currency, :is_active, :created_at, :updated_at
-		)`
+		query := `
+			INSERT INTO events (
+				id, organizer_id, category_id, name, slug, description, 
+				event_date, doors_open, venue_name, venue_address, 
+				venue_city, venue_state, venue_country, venue_capacity, 
+				event_image_url, status, sale_start, sale_end, 
+				settings, is_active, created_at, updated_at
+			) VALUES (
+				:id, :organizer_id, :category_id, :name, :slug, :description,
+				:event_date, :doors_open, :venue_name, :venue_address,
+				:venue_city, :venue_state, :venue_country, :venue_capacity,
+				:event_image_url, :status, :sale_start, :sale_end,
+				:settings, :is_active, :created_at, :updated_at
+			)`
 	
 	_, err := r.db.NamedExecContext(ctx, query, event)
 	if err != nil {
@@ -70,7 +70,7 @@ func (r *eventRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.
 			   e.event_date, e.doors_open, e.venue_name, e.venue_address, 
 			   e.venue_city, e.venue_state, e.venue_country, e.venue_capacity,
 			   e.event_image_url, e.status, e.sale_start, e.sale_end, 
-			   e.settings, e.currency, e.created_at, e.updated_at, e.is_active
+			   e.settings, e.created_at, e.updated_at, e.is_active
 		FROM events e
 		WHERE e.id = $1 AND e.is_active = true`
 	
@@ -92,7 +92,7 @@ func (r *eventRepository) GetBySlug(ctx context.Context, organizerID uuid.UUID, 
 			   e.event_date, e.doors_open, e.venue_name, e.venue_address, 
 			   e.venue_city, e.venue_state, e.venue_country, e.venue_capacity,
 			   e.event_image_url, e.status, e.sale_start, e.sale_end, 
-			   e.settings, e.currency, e.created_at, e.updated_at, e.is_active
+			   e.settings, e.created_at, e.updated_at, e.is_active
 		FROM events e
 		WHERE e.organizer_id = $1 AND e.slug = $2 AND e.is_active = true`
 	
@@ -172,7 +172,7 @@ func (r *eventRepository) List(ctx context.Context, filter repositories.EventFil
 			   e.event_date, e.doors_open, e.venue_name, e.venue_address, 
 			   e.venue_city, e.venue_state, e.venue_country, e.venue_capacity,
 			   e.event_image_url, e.status, e.sale_start, e.sale_end, 
-			   e.settings, e.currency, e.created_at, e.updated_at, e.is_active
+			   e.settings, e.created_at, e.updated_at, e.is_active
 		FROM events e`
 	
 	query, args := r.buildEventQuery(baseQuery, filter)
@@ -223,7 +223,7 @@ func (r *eventRepository) ListPublic(ctx context.Context, filter repositories.Pu
 			   e.event_date, e.doors_open, e.venue_name, e.venue_address, 
 			   e.venue_city, e.venue_state, e.venue_country, e.venue_capacity,
 			   e.event_image_url, e.status, e.sale_start, e.sale_end, 
-			   e.settings, e.currency, e.created_at, e.updated_at, e.is_active
+			   e.settings, e.created_at, e.updated_at, e.is_active
 		FROM events e
 		WHERE e.is_active = true AND e.status IN ('published', 'on_sale')`
 	
@@ -348,7 +348,7 @@ func (r *eventRepository) Update(ctx context.Context, event *entities.Event) err
 			sale_start = :sale_start,
 			sale_end = :sale_end,
 			settings = :settings,
-			currency = :currency,
+
 			updated_at = :updated_at
 		WHERE id = :id AND is_active = true`
 	
