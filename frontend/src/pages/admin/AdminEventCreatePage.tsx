@@ -3,9 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, Trash2 } from 'lucide-react'
 
 interface Category {
-  id: number
+  id: string // UUID from backend
   name: string
+  slug: string
   description: string
+  icon?: string
+  color?: string
+  display_order?: number
+  is_active?: boolean
 }
 
 const AdminEventCreatePage: React.FC = () => {
@@ -65,8 +70,9 @@ const AdminEventCreatePage: React.FC = () => {
       try {
         const response = await fetch('http://localhost:8080/v1/categories')
         const data = await response.json()
-        if (data.success && data.data.categories) {
-          setCategories(data.data.categories)
+        console.log('Categories API response:', data)
+        if (data.success && data.data) {
+          setCategories(data.data)
         }
       } catch (error) {
         console.error('Error fetching categories:', error)
