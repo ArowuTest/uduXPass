@@ -16,8 +16,8 @@ type TicketTier struct {
 	Currency     string     `json:"currency" db:"currency"`
 	Quota        int        `json:"quota" db:"quota"`
 	Sold         int        `json:"sold" db:"sold"`
-	MinPurchase  int        `json:"min_purchase" db:"min_per_order"`
-	MaxPurchase  int        `json:"max_purchase" db:"max_per_order"`
+	MinPurchase  int        `json:"min_per_order" db:"min_per_order"`
+	MaxPurchase  int        `json:"max_per_order" db:"max_per_order"`
 	SaleStart    *time.Time `json:"sale_start,omitempty" db:"sale_start"`
 	SaleEnd      *time.Time `json:"sale_end,omitempty" db:"sale_end"`
 	Position     int        `json:"position" db:"position"`

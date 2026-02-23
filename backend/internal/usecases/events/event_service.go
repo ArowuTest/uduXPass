@@ -42,8 +42,8 @@ type TicketTierRequest struct {
 	Description *string    `json:"description,omitempty"`
 	Price       float64    `json:"price" validate:"required,gte=0"`
 	Quota       int        `json:"quota" validate:"required,gt=0"`
-	MinPurchase int        `json:"min_purchase,omitempty"`
-	MaxPurchase int        `json:"max_purchase,omitempty"`
+	MinPurchase int        `json:"min_per_order,omitempty"`
+	MaxPurchase int        `json:"max_per_order,omitempty"`
 	SaleStart   *time.Time `json:"sale_start,omitempty"`
 	SaleEnd     *time.Time `json:"sale_end,omitempty"`
 }
