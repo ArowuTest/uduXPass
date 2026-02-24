@@ -62,8 +62,8 @@ func (r *ticketTierRepository) Create(ctx context.Context, tier *entities.Ticket
 func (r *ticketTierRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.TicketTier, error) {
 	var tier entities.TicketTier
 	query := `
-		SELECT tt.id, tt.event_id, tt.name, tt.description, tt.price, tt.currency,
-			   tt.quota, tt.sold, tt.min_purchase, tt.max_purchase, tt.sale_start, tt.sale_end,
+			SELECT tt.id, tt.event_id, tt.name, tt.description, tt.price, tt.currency,
+				   tt.quota, tt.sold, tt.min_per_order, tt.max_per_order, tt.sale_start, tt.sale_end,
 			   tt.is_active, tt.created_at, tt.updated_at
 		FROM ticket_tiers tt
 		WHERE tt.id = $1 AND tt.is_active = true`
@@ -93,7 +93,7 @@ func (r *ticketTierRepository) GetActiveByEvent(ctx context.Context, eventID uui
 	
 	query := `
 		SELECT tt.id, tt.event_id, tt.name, tt.description, tt.price,
-			   tt.quota, tt.sold, tt.min_purchase, tt.max_purchase,
+				   tt.quota, tt.sold, tt.min_per_order, tt.max_per_order,
 			   tt.sale_start, tt.sale_end, tt.is_active,
 			   tt.created_at, tt.updated_at
 		FROM ticket_tiers tt
