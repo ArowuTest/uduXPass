@@ -172,14 +172,14 @@ const apiRequest = async <T = any>(
 // Authentication API
 export const authAPI = {
   login: async (credentials: LoginCredentials): Promise<ApiResponse<AuthResponse>> => {
-    return loginRequest<AuthResponse>('/v1/auth/email/login', {
+    return loginRequest<AuthResponse>('/auth/email/login', {
       method: 'POST',
       body: JSON.stringify(credentials)
     });
   },
 
   register: async (userData: RegisterData): Promise<ApiResponse<AuthResponse>> => {
-    return loginRequest<AuthResponse>('/v1/auth/email/register', {
+    return loginRequest<AuthResponse>('/auth/email/register', {
       method: 'POST',
       body: JSON.stringify(userData)
     });
