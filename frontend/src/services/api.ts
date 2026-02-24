@@ -255,7 +255,7 @@ export const eventsAPI = {
     if (params?.search) queryParams.append('search', params.search);
     if (params?.city) queryParams.append('city', params.city);
 
-    const endpoint = `/v1/events${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const endpoint = `/events${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await apiRequest<any>(endpoint);
     
     // Transform backend response to frontend format
@@ -278,7 +278,7 @@ export const eventsAPI = {
     if (params?.search) queryParams.append('search', params.search);
     if (params?.status) queryParams.append('status', params.status);
 
-    const endpoint = `/v1/events${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const endpoint = `/events${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await apiRequest<any>(endpoint);
     
     // Transform backend response to frontend format
@@ -379,7 +379,7 @@ export const ordersAPI = {
     if (params?.status) queryParams.append('status', params.status);
     if (params?.event_id) queryParams.append('event_id', params.event_id);
 
-    const endpoint = `/v1/admin/orders${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const endpoint = `/admin/orders${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return adminApiRequest<Order[]>(endpoint);
   },
 
@@ -425,7 +425,7 @@ export const ticketsAPI = {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     if (params?.status) queryParams.append('status', params.status);
 
-    const endpoint = `/v1/tickets/user${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const endpoint = `/tickets/user${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return apiRequest<Ticket[]>(endpoint);
   },
 
@@ -436,7 +436,7 @@ export const ticketsAPI = {
     if (params?.status) queryParams.append('status', params.status);
     if (params?.event_id) queryParams.append('event_id', params.event_id);
 
-    const endpoint = `/v1/admin/tickets${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const endpoint = `/admin/tickets${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return adminApiRequest<Ticket[]>(endpoint);
   },
 
@@ -488,13 +488,13 @@ export const analyticsAPI = {
   // ADDED: Missing analytics functions that frontend expects
   getSalesAnalytics: async (params: any = {}): Promise<ApiResponse<any>> => {
     const queryString = new URLSearchParams(params).toString();
-    const endpoint = `/v1/admin/analytics/sales-analytics${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/admin/analytics/sales-analytics${queryString ? `?${queryString}` : ''}`;
     return adminApiRequest<any>(endpoint);
   },
 
   getUserAnalytics: async (params: any = {}): Promise<ApiResponse<any>> => {
     const queryString = new URLSearchParams(params).toString();
-    const endpoint = `/v1/admin/analytics/user-analytics${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/admin/analytics/user-analytics${queryString ? `?${queryString}` : ''}`;
     return adminApiRequest<any>(endpoint);
   },
 
@@ -505,7 +505,7 @@ export const analyticsAPI = {
     if (params.date_to) queryParams.append('date_to', params.date_to);
     if (params.group_by) queryParams.append('group_by', params.group_by);
 
-    const endpoint = `/v1/admin/analytics/sales${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const endpoint = `/admin/analytics/sales${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return adminApiRequest<SalesReport>(endpoint);
   },
 
@@ -516,7 +516,7 @@ export const analyticsAPI = {
     if (params.date_to) queryParams.append('date_to', params.date_to);
     if (params.group_by) queryParams.append('group_by', params.group_by);
 
-    const endpoint = `/v1/admin/analytics/revenue${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const endpoint = `/admin/analytics/revenue${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return adminApiRequest<RevenueReport>(endpoint);
   },
 

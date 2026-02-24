@@ -22,7 +22,7 @@ func main() {
 		Port:               getEnv("PORT", "8080"),
 		Environment:        getEnv("ENV", "development"),
 		JWTSecret:          getEnv("JWT_SECRET", "uduxpass-default-secret-key"),
-		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173"),
+		CORSAllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
 	}
 
 	// Initialize database manager
