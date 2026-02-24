@@ -296,7 +296,7 @@ export const eventsAPI = {
   },
 
   getById: async (id: string): Promise<ApiResponse<Event>> => {
-    const response = await apiRequest<any>(`/v1/events/${id}`);
+    const response = await apiRequest<any>(`/events/${id}`);
     
     // Transform backend response to frontend format
     if (response.success && response.data) {
@@ -331,7 +331,7 @@ export const eventsAPI = {
     // Transform frontend data to backend format
     const backendEventData = transformFrontendEventToBackend(eventData as any);
     
-    const response = await adminApiRequest<any>(`/v1/admin/events/${id}`, {
+    const response = await adminApiRequest<any>(`/admin/events/${id}`, {
       method: 'PUT',
       body: JSON.stringify(backendEventData)
     });
@@ -345,13 +345,13 @@ export const eventsAPI = {
   },
 
   delete: async (id: string): Promise<ApiResponse<void>> => {
-    return adminApiRequest<void>(`/v1/admin/events/${id}`, {
+    return adminApiRequest<void>(`/admin/events/${id}`, {
       method: 'DELETE'
     });
   },
 
   getStats: async (id: string): Promise<ApiResponse<EventStats>> => {
-    return adminApiRequest<EventStats>(`/v1/admin/events/${id}/stats`);
+    return adminApiRequest<EventStats>(`/admin/events/${id}/stats`);
   }
 };
 
@@ -365,7 +365,7 @@ export const ordersAPI = {
   },
 
   getById: async (id: string): Promise<ApiResponse<Order>> => {
-    return apiRequest<Order>(`/v1/orders/${id}`);
+    return apiRequest<Order>(`/orders/${id}`);
   },
 
   getUserOrders: async (): Promise<ApiResponse<Order[]>> => {
@@ -413,7 +413,7 @@ export const paymentsAPI = {
   },
 
   verify: async (reference: string): Promise<ApiResponse<{ status: string; order: Order }>> => {
-    return apiRequest<{ status: string; order: Order }>(`/v1/payments/verify/${reference}`);
+    return apiRequest<{ status: string; order: Order }>(`/payments/verify/${reference}`);
   }
 };
 
@@ -441,7 +441,7 @@ export const ticketsAPI = {
   },
 
   validateTicket: async (ticketId: string): Promise<ApiResponse<{ valid: boolean; ticket: Ticket }>> => {
-    return adminApiRequest<{ valid: boolean; ticket: Ticket }>(`/v1/admin/tickets/${ticketId}/validate`, {
+    return adminApiRequest<{ valid: boolean; ticket: Ticket }>(`/admin/tickets/${ticketId}/validate`, {
       method: 'POST'
     });
   },
@@ -482,7 +482,7 @@ export const analyticsAPI = {
   },
 
   getEventAnalytics: async (eventId: string): Promise<ApiResponse<EventStats>> => {
-    return adminApiRequest<EventStats>(`/v1/admin/analytics/events/${eventId}`);
+    return adminApiRequest<EventStats>(`/admin/analytics/events/${eventId}`);
   },
 
   // ADDED: Missing analytics functions that frontend expects
@@ -568,18 +568,18 @@ export const scannersAPI = {
   },
 
   getById: async (id: string): Promise<ApiResponse<any>> => {
-    return adminApiRequest<any>(`/v1/admin/scanners/${id}`);
+    return adminApiRequest<any>(`/admin/scanners/${id}`);
   },
 
   update: async (id: string, scannerData: any): Promise<ApiResponse<any>> => {
-    return adminApiRequest<any>(`/v1/admin/scanners/${id}`, {
+    return adminApiRequest<any>(`/admin/scanners/${id}`, {
       method: 'PUT',
       body: JSON.stringify(scannerData)
     });
   },
 
   delete: async (id: string): Promise<ApiResponse<void>> => {
-    return adminApiRequest<void>(`/v1/admin/scanners/${id}`, {
+    return adminApiRequest<void>(`/admin/scanners/${id}`, {
       method: 'DELETE'
     });
   }
@@ -636,14 +636,14 @@ export const scannerUsersAPI = {
   },
 
   update: async (id: string, userData: any): Promise<ApiResponse<any>> => {
-    return adminApiRequest<any>(`/v1/admin/scanner-users/${id}`, {
+    return adminApiRequest<any>(`/admin/scanner-users/${id}`, {
       method: "PUT",
       body: JSON.stringify(userData),
     });
   },
 
   delete: async (id: string): Promise<ApiResponse<void>> => {
-    return adminApiRequest<void>(`/v1/admin/scanner-users/${id}`, {
+    return adminApiRequest<void>(`/admin/scanner-users/${id}`, {
       method: "DELETE",
     });
   },
