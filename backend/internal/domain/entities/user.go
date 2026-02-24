@@ -18,7 +18,7 @@ const (
 type User struct {
 	ID             uuid.UUID              `json:"id" db:"id"`
 	Email          *string                `json:"email,omitempty" db:"email"`
-	Phone          *string                `json:"phone,omitempty" db:"phone_number"`
+	Phone          *string                `json:"phone,omitempty" db:"phone"`
 	Password       *string                `json:"-" db:"password"`           // Added missing field
 	PasswordHash   *string                `json:"-" db:"password_hash"`
 	FirstName      *string                `json:"first_name,omitempty" db:"first_name"`

@@ -34,11 +34,11 @@ func NewUserRepositoryWithTx(tx *sqlx.Tx) repositories.UserRepository {
 func (r *userRepository) Create(ctx context.Context, user *entities.User) error {
 	query := `
 		INSERT INTO users (
-			id, first_name, last_name, email, phone_number, password_hash, 
+			id, first_name, last_name, email, phone, password_hash, 
 			auth_provider, momo_id, email_verified, phone_verified, 
 			is_active, created_at, updated_at
 		) VALUES (
-			:id, :first_name, :last_name, :email, :phone_number, :password_hash,
+			:id, :first_name, :last_name, :email, :phone, :password_hash,
 			:auth_provider, :momo_id, :email_verified, :phone_verified,
 			:is_active, :created_at, :updated_at
 		)`
@@ -65,7 +65,7 @@ func (r *userRepository) Create(ctx context.Context, user *entities.User) error 
 func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.User, error) {
 	var user entities.User
 	query := `
-		SELECT id, first_name, last_name, email, phone_number, password_hash,
+		SELECT id, first_name, last_name, email, phone, password_hash,
 			   auth_provider, momo_id, email_verified, phone_verified,
 			   is_active, last_login, created_at, updated_at
 		FROM users 
@@ -85,7 +85,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.U
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*entities.User, error) {
 	var user entities.User
 	query := `
-		SELECT id, first_name, last_name, email, phone_number, password_hash,
+		SELECT id, first_name, last_name, email, phone, password_hash,
 			   auth_provider, momo_id, email_verified, phone_verified,
 			   is_active, last_login, created_at, updated_at
 		FROM users 
@@ -105,11 +105,11 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*entitie
 func (r *userRepository) GetByPhone(ctx context.Context, phone string) (*entities.User, error) {
 	var user entities.User
 	query := `
-		SELECT id, first_name, last_name, email, phone_number, password_hash,
+		SELECT id, first_name, last_name, email, phone, password_hash,
 			   auth_provider, momo_id, email_verified, phone_verified,
 			   is_active, last_login, created_at, updated_at
 		FROM users 
-		WHERE phone_number = $1 AND is_active = true`
+		WHERE phone = $1 AND is_active = true`
 	
 	err := r.db.GetContext(ctx, &user, query, phone)
 	if err != nil {
@@ -125,7 +125,7 @@ func (r *userRepository) GetByPhone(ctx context.Context, phone string) (*entitie
 func (r *userRepository) GetByMoMoID(ctx context.Context, momoID string) (*entities.User, error) {
 	var user entities.User
 	query := `
-		SELECT id, first_name, last_name, email, phone_number, password_hash,
+		SELECT id, first_name, last_name, email, phone, password_hash,
 			   auth_provider, momo_id, email_verified, phone_verified,
 			   is_active, last_login, created_at, updated_at
 		FROM users 
@@ -145,11 +145,11 @@ func (r *userRepository) GetByMoMoID(ctx context.Context, momoID string) (*entit
 func (r *userRepository) GetByIdentifier(ctx context.Context, identifier string) (*entities.User, error) {
 	var user entities.User
 	query := `
-		SELECT id, first_name, last_name, email, phone_number, password_hash,
+		SELECT id, first_name, last_name, email, phone, password_hash,
 			   auth_provider, momo_id, email_verified, phone_verified,
 			   is_active, last_login, created_at, updated_at
 		FROM users 
-		WHERE (email = $1 OR phone_number = $1 OR momo_id = $1) AND is_active = true`
+		WHERE (email = $1 OR phone = $1 OR momo_id = $1) AND is_active = true`
 	
 	err := r.db.GetContext(ctx, &user, query, identifier)
 	if err != nil {
@@ -170,7 +170,7 @@ func (r *userRepository) Update(ctx context.Context, user *entities.User) error 
 			first_name = :first_name,
 			last_name = :last_name,
 			email = :email,
-			phone_number = :phone_number,
+			phone = :phone,
 			password_hash = :password_hash,
 			auth_provider = :auth_provider,
 			momo_id = :momo_id,
@@ -264,7 +264,7 @@ func (r *userRepository) List(ctx context.Context, filter repositories.UserFilte
 	
 	if filter.Search != "" {
 		searchPattern := "%" + filter.Search + "%"
-		whereConditions = append(whereConditions, fmt.Sprintf("(email ILIKE $%d OR phone_number ILIKE $%d OR first_name ILIKE $%d OR last_name ILIKE $%d)", argIndex, argIndex, argIndex, argIndex))
+		whereConditions = append(whereConditions, fmt.Sprintf("(email ILIKE $%d OR phone ILIKE $%d OR first_name ILIKE $%d OR last_name ILIKE $%d)", argIndex, argIndex, argIndex, argIndex))
 		args = append(args, searchPattern)
 		argIndex++
 	}
@@ -303,7 +303,7 @@ func (r *userRepository) List(ctx context.Context, filter repositories.UserFilte
 	// Build main query with pagination
 	offset := (filter.Page - 1) * filter.Limit
 	query := fmt.Sprintf(`
-		SELECT id, first_name, last_name, email, phone_number, password_hash,
+		SELECT id, first_name, last_name, email, phone, password_hash,
 			   auth_provider, momo_id, email_verified, phone_verified,
 			   is_active, last_login, created_at, updated_at
 		FROM users 
@@ -356,7 +356,7 @@ func (r *userRepository) ExistsByEmail(ctx context.Context, email string) (bool,
 
 func (r *userRepository) ExistsByPhone(ctx context.Context, phone string) (bool, error) {
 	var exists bool
-	query := `SELECT EXISTS(SELECT 1 FROM users WHERE phone_number = $1 AND is_active = true)`
+	query := `SELECT EXISTS(SELECT 1 FROM users WHERE phone = $1 AND is_active = true)`
 	
 	err := r.db.GetContext(ctx, &exists, query, phone)
 	if err != nil {
