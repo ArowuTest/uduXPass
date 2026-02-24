@@ -42,8 +42,8 @@ type RegisterRequest struct {
 	Password    string `json:"password" validate:"required,min=8"`
 	FirstName   string `json:"firstName" validate:"required"` // Accept camelCase from frontend
 	LastName    string `json:"lastName" validate:"required"`  // Accept camelCase from frontend
-	PhoneNumber string `json:"phone_number"`
-	Phone       string `json:"phone"` // Alias for phone_number for API compatibility
+	PhoneNumber string `json:"phone_number" validate:"omitempty"` // Optional
+	Phone       string `json:"phone" validate:"omitempty"` // Optional - Alias for phone_number
 }
 
 // GetPhone returns the phone number from either field
@@ -90,11 +90,8 @@ func (s *AuthService) Register(ctx context.Context, req *RegisterRequest) (*Auth
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// Get phone number from either field
+	// Get phone number from either field (optional)
 	phoneNumber := req.GetPhone()
-	if phoneNumber == "" {
-		return nil, entities.NewValidationError("phone", "Phone number is required")
-	}
 
 	// Create user
 	user := entities.NewEmailUserWithPassword(
