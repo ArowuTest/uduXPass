@@ -71,20 +71,10 @@ const LoginPage: React.FC = () => {
     setIsLoading(true)
     
     try {
-      const result: LoginResult = await login({
-        email: formData.email,
-        password: formData.password
-      })
-
-      console.log('Login API response:', { success: result.success, error: result.error });
-
-      if (result.success) {
-        toast.success('Login successful!')
-        navigate(from, { replace: true })
-      } else {
-        console.error('Login failed:', result.error);
-        toast.error(result.error || 'Login failed')
-      }
+      await login(formData.email, formData.password)
+      // If we get here, login succeeded
+      toast.success('Login successful!')
+      navigate(from, { replace: true })
     } catch (error) {
       console.error('Login network error:', error);
       toast.error(error instanceof Error ? error.message : 'An error occurred during login')

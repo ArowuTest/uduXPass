@@ -245,10 +245,12 @@ export interface Order {
 
 export interface CreateOrderData {
   event_id: string;
-  customer_first_name: string;
-  customer_last_name: string;
-  customer_email: string;
-  customer_phone: string;
+  customer_info: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+  };
   order_lines: {
     ticket_tier_id: string;
     quantity: number;

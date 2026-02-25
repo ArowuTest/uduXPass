@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
-import { ordersAPI, paymentsAPI } from '../services/api';
+import { ordersAPI, paymentsAPI, eventsAPI } from '../services/api';
 import { CreateOrderData, PaymentMethod } from '../types/api';
 import { formatCurrency } from '../lib/utils';
 import { 
@@ -60,15 +60,14 @@ const CheckoutPage: React.FC = () => {
     const fetchEventDetails = async () => {
       if (items.length > 0) {
         try {
-          const response = await fetch(`/api/events/${items[0].eventId}`);
-          const data = await response.json();
-          if (data.success && data.data) {
-            setEvent(data.data);
+          const response = await eventsAPI.getById(items[0].eventId);
+          if (response.success && response.data) {
+            setEvent(response.data);
             
             // Filter available payment methods based on event settings
             const methods: PaymentMethod[] = [];
-            if (data.data.enable_momo !== false) methods.push('momo');
-            if (data.data.enable_paystack !== false) methods.push('paystack');
+            if (response.data.enable_momo !== false) methods.push('momo');
+            if (response.data.enable_paystack !== false) methods.push('paystack');
             
             setAvailablePaymentMethods(methods);
             
@@ -170,18 +169,20 @@ const CheckoutPage: React.FC = () => {
       // Create order
       const orderData: CreateOrderData = {
         event_id: items[0].eventId, // Assuming all items are from the same event
-        customer_first_name: customerInfo.firstName,
-        customer_last_name: customerInfo.lastName,
-        customer_email: customerInfo.email,
-        customer_phone: customerInfo.phone,
+        customer_info: {
+          first_name: customerInfo.firstName,
+          last_name: customerInfo.lastName,
+          email: customerInfo.email,
+          phone: customerInfo.phone
+        },
         order_lines: items.map(item => ({
-          ticket_tier_id: item.tierId,
+          ticket_tier_id: item.ticketTier.id,
           quantity: item.quantity
         })),
         payment_method: paymentMethod
       };
 
-      const orderResponse = await ordersAPI.createOrder(orderData);
+      const orderResponse = await ordersAPI.create(orderData);
       
       if (!orderResponse.success || !orderResponse.data) {
         throw new Error(orderResponse.error || 'Failed to create order');
@@ -190,7 +191,7 @@ const CheckoutPage: React.FC = () => {
       const order = orderResponse.data;
 
       // Initiate payment
-      const paymentResponse = await paymentsAPI.initiatePayment({
+      const paymentResponse = await paymentsAPI.initiate({
         order_id: order.id,
         payment_method: paymentMethod,
         return_url: `${window.location.origin}/order-confirmation/${order.id}`,
@@ -287,11 +288,11 @@ const CheckoutPage: React.FC = () => {
                   {items.map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex-1">
-                        <h3 className="font-semibold">{item.eventName}</h3>
-                        <p className="text-sm text-gray-600">{item.tierName}</p>
-                        <p className="text-sm text-gray-500">{item.venue}</p>
+                        <h3 className="font-semibold">{event?.name || 'Event'}</h3>
+                        <p className="text-sm text-gray-600">{item.ticketTier.name}</p>
+                        <p className="text-sm text-gray-500">{event?.venue || ''}</p>
                         <p className="text-lg font-bold text-green-600">
-                          {formatCurrency(item.price)}
+                          {formatCurrency(item.ticketTier.price)}
                         </p>
                       </div>
                       

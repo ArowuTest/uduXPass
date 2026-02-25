@@ -625,11 +625,11 @@ export default {
 // Scanner Users API
 export const scannerUsersAPI = {
   getAll: async (): Promise<ApiResponse<any[]>> => {
-    return adminApiRequest<any[]>("/v1/admin/scanner-users");
+    return adminApiRequest<any[]>("/admin/scanner-users");
   },
 
   create: async (userData: any): Promise<ApiResponse<any>> => {
-    return adminApiRequest<any>("/v1/admin/scanner-users", {
+    return adminApiRequest<any>("/admin/scanner-users", {
       method: "POST",
       body: JSON.stringify(userData),
     });
