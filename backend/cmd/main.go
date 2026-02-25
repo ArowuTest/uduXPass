@@ -50,7 +50,7 @@ func initializeDatabase() (*database.DatabaseManager, error) {
 	port := getEnv("DB_PORT", "5432")
 	user := getEnv("DB_USER", "ubuntu")
 	password := getEnv("DB_PASSWORD", "ubuntu")
-	dbname := getEnv("DB_NAME", "uduxpass_e2e_test")
+	dbname := getEnv("DB_NAME", "uduxpass_db")
 	sslmode := getEnv("DB_SSLMODE", "disable")
 	
 	// Build PostgreSQL connection string

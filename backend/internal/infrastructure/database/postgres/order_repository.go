@@ -59,11 +59,13 @@ func NewOrderRepositoryWithTx(tx *sqlx.Tx) repositories.OrderRepository {
 	orderQuery := `
 		INSERT INTO orders (
 			id, user_id, event_id, code, secret, status, total_amount, 
-			currency, customer_email, customer_phone, customer_first_name, 
+			currency, email, phone, first_name, last_name,
+			customer_email, customer_phone, customer_first_name, 
 			customer_last_name, expires_at, created_at, updated_at
 		) VALUES (
 			:id, :user_id, :event_id, :code, :secret, :status, :total_amount,
-			:currency, :customer_email, :customer_phone, :customer_first_name,
+			:currency, :email, :phone, :first_name, :last_name,
+			:customer_email, :customer_phone, :customer_first_name,
 			:customer_last_name, :expires_at, :created_at, :updated_at
 		)`
 	
