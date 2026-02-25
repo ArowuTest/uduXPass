@@ -113,7 +113,7 @@ const LoginPage: React.FC = () => {
     setIsLoading(true)
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/v1/auth/momo/request-otp`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/auth/momo/request-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -146,7 +146,7 @@ const LoginPage: React.FC = () => {
     setIsLoading(true)
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/v1/auth/momo/verify-otp`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/auth/momo/verify-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
