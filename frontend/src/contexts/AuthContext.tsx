@@ -196,11 +196,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await authAPI.login({ email, password })
       
       if (response.success && response.data) {
-        const { accessToken, user: userData } = response.data
+        const { access_token, user: userData } = response.data
         const validatedUser = validateUser(userData)
         
-        if (validatedUser && accessToken) {
-          localStorage.setItem('accessToken', accessToken)
+        if (validatedUser && access_token) {
+          localStorage.setItem('accessToken', access_token)
           localStorage.setItem('userData', JSON.stringify(validatedUser))
           
           setUser(validatedUser)
@@ -235,11 +235,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await authAPI.register(data)
       
       if (response.success && response.data) {
-        const { accessToken, user: userData } = response.data
+        const { access_token, user: userData } = response.data
         const validatedUser = validateUser(userData)
         
-        if (validatedUser && accessToken) {
-          localStorage.setItem('accessToken', accessToken)
+        if (validatedUser && access_token) {
+          localStorage.setItem('accessToken', access_token)
           localStorage.setItem('userData', JSON.stringify(validatedUser))
           
           setUser(validatedUser)
