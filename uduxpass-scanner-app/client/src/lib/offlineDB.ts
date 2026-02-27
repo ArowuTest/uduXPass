@@ -433,14 +433,15 @@ export async function getOfflineStats(): Promise<{
 // Export all functions as offlineDB object
 export const offlineDB = {
   initOfflineDB,
-  cacheTickets,
-  getTicketByQR,
-  saveValidation,
+  cacheTicket,
+  getCachedTicket,
+  cacheEventTickets,
+  saveOfflineValidation,
   getUnsyncedValidations,
   markValidationSynced,
   addToSyncQueue,
   getSyncQueue,
   removeFromSyncQueue,
-  clearCache,
-  getStats,
+  clearOfflineData,
+  getOfflineStats,
 };

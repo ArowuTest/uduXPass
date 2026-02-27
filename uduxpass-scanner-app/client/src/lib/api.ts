@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Backend API base URL - matches the uduXPass backend
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://8080-i3vhsavkuyc73e9syb280-50ae409d.us2.manus.computer';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -122,38 +122,51 @@ export const scannerApi = {
   // Events
   getEvents: async (): Promise<Event[]> => {
     const response = await api.get('/v1/scanner/events');
-    return response.data;
+    // Backend returns {success: true, data: {events: [...]}}
+    const events = response.data?.data?.events || response.data?.events || [];
+    // Map backend fields to frontend Event interface
+    return events.map((e: any) => ({
+      id: e.event_id || e.id,
+      name: e.event_name || e.name,
+      description: e.description || '',
+      start_time: e.event_date || e.start_time,
+      end_time: e.end_time || '',
+      location: e.venue_name || e.location || '',
+      status: e.status || 'published'
+    }));
   },
 
   // Sessions
   createSession: async (data: CreateSessionRequest): Promise<ScanningSession> => {
-    const response = await api.post('/v1/scanner/sessions', data);
+    const response = await api.post('/v1/scanner/session/start', data);
     return response.data;
   },
 
   getActiveSessions: async (): Promise<ScanningSession[]> => {
-    const response = await api.get('/v1/scanner/sessions?status=active');
-    return response.data;
+    const response = await api.get('/v1/scanner/session/current');
+    const session = response.data;
+    return session ? [session] : [];
   },
 
   getAllSessions: async (): Promise<ScanningSession[]> => {
-    const response = await api.get('/v1/scanner/sessions');
-    return response.data;
+    const response = await api.get('/v1/scanner/session/current');
+    const session = response.data;
+    return session ? [session] : [];
   },
 
   endSession: async (sessionId: string): Promise<void> => {
-    await api.patch(`/v1/scanner/sessions/${sessionId}/end`);
+    await api.post('/v1/scanner/session/end', { session_id: sessionId });
   },
 
   getSessionStats: async (sessionId: string): Promise<SessionStats> => {
-    const response = await api.get(`/v1/scanner/sessions/${sessionId}/stats`);
+    const response = await api.get('/v1/scanner/stats');
     return response.data;
   },
 
   // Ticket Validation
   validateTicket: async (data: ValidateTicketRequest): Promise<ValidateTicketResponse> => {
-    // Backend expects: POST /v1/tickets/:qr_code/validate
-    const response = await api.post(`/v1/tickets/${encodeURIComponent(data.qr_code_data)}/validate`, {
+    const response = await api.post('/v1/scanner/validate', {
+      qr_code: data.qr_code_data,
       session_id: data.session_id
     });
     return response.data;
