@@ -19,6 +19,7 @@ type AdminHandlerExtended struct {
 	orderRepo        repositories.OrderRepository
 	ticketRepo       repositories.TicketRepository
 	scannerUserRepo  repositories.ScannerUserRepository
+	organizerRepo    repositories.OrganizerRepository
 }
 
 // NewAdminHandlerExtended creates a new extended admin handler
@@ -29,6 +30,7 @@ func NewAdminHandlerExtended(
 	orderRepo repositories.OrderRepository,
 	ticketRepo repositories.TicketRepository,
 	scannerUserRepo repositories.ScannerUserRepository,
+	organizerRepo repositories.OrganizerRepository,
 ) *AdminHandlerExtended {
 	return &AdminHandlerExtended{
 		adminAuthService: adminAuthService,
@@ -37,6 +39,7 @@ func NewAdminHandlerExtended(
 		orderRepo:        orderRepo,
 		ticketRepo:       ticketRepo,
 		scannerUserRepo:  scannerUserRepo,
+		organizerRepo:    organizerRepo,
 	}
 }
 
@@ -542,4 +545,21 @@ func (h *AdminHandlerExtended) ExportEvents(c *gin.Context) {
 
 func (h *AdminHandlerExtended) ExportTickets(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
+}
+
+// GetOrganizers returns a list of all organizers
+func (h *AdminHandlerExtended) GetOrganizers(c *gin.Context) {
+	filter := repositories.OrganizerFilter{
+		Page:  1,
+		Limit: 100,
+	}
+	organizers, _, err := h.organizerRepo.List(c.Request.Context(), filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch organizers"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    organizers,
+	})
 }

@@ -94,7 +94,7 @@ const AdminTicketValidationPage: React.FC = () => {
   const fetchTickets = async (): Promise<void> => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:8080/v1/admin/tickets', {
+      const response = await fetch('/v1/admin/tickets', {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
@@ -118,7 +118,7 @@ const AdminTicketValidationPage: React.FC = () => {
   const fetchStats = async (): Promise<void> => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:8080/v1/admin/tickets/stats', {
+      const response = await fetch('/v1/admin/tickets/stats', {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
@@ -159,7 +159,7 @@ const AdminTicketValidationPage: React.FC = () => {
   const handleViewTicket = async (ticketId: string): Promise<void> => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch(`http://localhost:8080/v1/admin/tickets/${ticketId}`, {
+      const response = await fetch(`/v1/admin/tickets/${ticketId}`, {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
@@ -195,7 +195,7 @@ const AdminTicketValidationPage: React.FC = () => {
 
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:8080/v1/admin/tickets/validate', {
+      const response = await fetch('/v1/admin/tickets/validate', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${adminToken}`,
@@ -263,7 +263,7 @@ const AdminTicketValidationPage: React.FC = () => {
   const handleInvalidateTicket = async (ticketId: string): Promise<void> => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch(`http://localhost:8080/v1/admin/tickets/${ticketId}/invalidate`, {
+      const response = await fetch(`/v1/admin/tickets/${ticketId}/invalidate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${adminToken}`,
@@ -288,7 +288,7 @@ const AdminTicketValidationPage: React.FC = () => {
   const exportTicketData = async (): Promise<void> => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:8080/v1/admin/tickets/export', {
+      const response = await fetch('/v1/admin/tickets/export', {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'

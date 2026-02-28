@@ -43,10 +43,27 @@ func NewOrderService(
 
 // CreateOrderRequest represents a create order request
 type CreateOrderRequest struct {
-	UserID      uuid.UUID              `json:"user_id" validate:"required"`
-	EventID     uuid.UUID              `json:"event_id" validate:"required"`
-	OrderLines  []CreateOrderLineItem  `json:"order_lines" validate:"required,min=1"`
+	UserID       uuid.UUID             `json:"user_id" validate:"required"`
+	EventID      uuid.UUID             `json:"event_id" validate:"required"`
+	OrderLines   []CreateOrderLineItem `json:"order_lines"` // Standard field name
+	Items        []CreateOrderLineItem `json:"items"`        // Alias for order_lines (frontend compatibility)
 	CustomerInfo *CustomerInfo         `json:"customer_info,omitempty"`
+}
+
+// GetOrderLines returns the effective order lines, preferring order_lines over items
+func (r *CreateOrderRequest) GetOrderLines() []CreateOrderLineItem {
+	if len(r.OrderLines) > 0 {
+		return r.OrderLines
+	}
+	return r.Items
+}
+
+// Validate checks that the request has at least one order line
+func (r *CreateOrderRequest) Validate() error {
+	if len(r.GetOrderLines()) == 0 {
+		return fmt.Errorf("at least one order line item is required")
+	}
+	return nil
 }
 
 // CreateOrderLineItem represents an order line item
@@ -145,8 +162,13 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 	var orderLines []*entities.OrderLine
 	var totalAmount float64
 
+	// Validate at least one order line
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+
 	// Process each order line
-	for _, lineItem := range req.OrderLines {
+	for _, lineItem := range req.GetOrderLines() {
 		// Get ticket tier
 		ticketTier, err := s.ticketTierRepo.GetByID(ctx, lineItem.TicketTierID)
 		if err != nil {

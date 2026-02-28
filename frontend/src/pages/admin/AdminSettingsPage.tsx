@@ -113,7 +113,7 @@ const AdminSettingsPage: React.FC = () => {
   const fetchSettings = async (): Promise<void> => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:8080/v1/admin/settings', {
+      const response = await fetch('/v1/admin/settings', {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
@@ -140,7 +140,7 @@ const AdminSettingsPage: React.FC = () => {
     setIsSaving(true)
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch(`http://localhost:8080/v1/admin/settings/${section}`, {
+      const response = await fetch(`/v1/admin/settings/${section}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${adminToken}`,
@@ -182,7 +182,7 @@ const AdminSettingsPage: React.FC = () => {
   const testEmailConnection = async (): Promise<void> => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:8080/v1/admin/settings/email/test', {
+      const response = await fetch('/v1/admin/settings/email/test', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${adminToken}`,

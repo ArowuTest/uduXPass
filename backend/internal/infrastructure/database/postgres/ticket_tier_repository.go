@@ -63,7 +63,8 @@ func (r *ticketTierRepository) GetByID(ctx context.Context, id uuid.UUID) (*enti
 	var tier entities.TicketTier
 	query := `
 			SELECT tt.id, tt.event_id, tt.name, tt.description, tt.price, tt.currency,
-				   tt.quota, tt.sold, tt.min_per_order, tt.max_per_order, tt.sale_start, tt.sale_end,
+				   tt.quota, tt.sold,
+				   tt.min_per_order, tt.max_per_order, tt.sale_start, tt.sale_end,
 			   tt.is_active, tt.created_at, tt.updated_at
 		FROM ticket_tiers tt
 		WHERE tt.id = $1 AND tt.is_active = true`
@@ -92,16 +93,17 @@ func (r *ticketTierRepository) GetActiveByEvent(ctx context.Context, eventID uui
 	var tiers []*entities.TicketTier
 	
 	query := `
-		SELECT tt.id, tt.event_id, tt.name, tt.description, tt.price,
-				   tt.quota, tt.sold, tt.min_per_order, tt.max_per_order,
-			   tt.sale_start, tt.sale_end, tt.is_active,
+		SELECT tt.id, tt.event_id, tt.name, tt.description, tt.price, tt.currency,
+			   tt.quota, tt.sold,
+			   tt.min_per_order, tt.max_per_order,
+			   tt.sale_start, tt.sale_end, tt.is_active, tt.position,
 			   tt.created_at, tt.updated_at
 		FROM ticket_tiers tt
 		WHERE tt.event_id = $1 
 		AND tt.is_active = true
 		AND (tt.sale_start IS NULL OR tt.sale_start <= NOW())
 		AND (tt.sale_end IS NULL OR tt.sale_end >= NOW())
-		ORDER BY tt.created_at ASC`
+		ORDER BY tt.position ASC, tt.created_at ASC`
 	
 	err := r.db.SelectContext(ctx, &tiers, query, eventID)
 	if err != nil {
@@ -285,25 +287,11 @@ func (r *ticketTierRepository) List(ctx context.Context, filter repositories.Tic
 	offset := (filter.Page - 1) * filter.Limit
 	query := fmt.Sprintf(`
 		SELECT tt.id, tt.event_id, tt.name, tt.description, tt.price, tt.currency,
-			   tt.quota, tt.max_per_order, tt.sale_start, tt.sale_end,
+			   tt.quota, tt.sold, tt.max_per_order, tt.sale_start, tt.sale_end,
 			   tt.is_active, tt.position, tt.meta_info, tt.created_at, tt.updated_at,
 			   e.name as event_title, e.slug as event_slug,
-			   COALESCE((
-				   SELECT SUM(ol.quantity) 
-				   FROM order_lines ol 
-				   JOIN orders o ON ol.order_id = o.id 
-				   WHERE ol.ticket_tier_id = tt.id 
-				   AND o.status = 'paid' 
-				   AND o.is_active = true
-			   ), 0) as sold_count,
-			   (tt.quota - COALESCE((
-				   SELECT SUM(ol.quantity) 
-				   FROM order_lines ol 
-				   JOIN orders o ON ol.order_id = o.id 
-				   WHERE ol.ticket_tier_id = tt.id 
-				   AND o.status = 'paid' 
-				   AND o.is_active = true
-			   ), 0)) as available_count
+			   tt.sold as sold_count,
+			   (tt.quota - tt.sold) as available_count
 		FROM ticket_tiers tt
 		JOIN events e ON tt.event_id = e.id
 		WHERE %s 
@@ -365,28 +353,21 @@ func (r *ticketTierRepository) GetAvailability(ctx context.Context, eventID uuid
 			tt.price,
 			tt.currency,
 			tt.quota as quota,
-			COALESCE(sold.count, 0) as sold,
+			tt.sold as sold,
 			COALESCE(reserved.count, 0) as reserved,
 			CASE 
 				WHEN tt.quota IS NULL THEN 999999
-				ELSE tt.quota - COALESCE(sold.count, 0) - COALESCE(reserved.count, 0)
+				ELSE tt.quota - tt.sold - COALESCE(reserved.count, 0)
 			END as available,
 			tt.is_active as is_on_sale,
 			CASE 
 				WHEN NOT tt.is_active THEN 'inactive'
-				WHEN tt.sale_event_date IS NOT NULL AND tt.sale_event_date > NOW() THEN 'not_started'
-				WHEN tt.sale_end_date IS NOT NULL AND tt.sale_end_date < NOW() THEN 'ended'
-				WHEN tt.quota IS NOT NULL AND COALESCE(sold.count, 0) >= tt.quota THEN 'sold_out'
+				WHEN tt.sale_start IS NOT NULL AND tt.sale_start > NOW() THEN 'not_started'
+				WHEN tt.sale_end IS NOT NULL AND tt.sale_end < NOW() THEN 'ended'
+				WHEN tt.quota IS NOT NULL AND tt.sold >= tt.quota THEN 'sold_out'
 				ELSE 'available'
 			END as sale_status
 		FROM ticket_tiers tt
-		LEFT JOIN (
-			SELECT ol.ticket_tier_id, SUM(ol.quantity) as count
-			FROM order_lines ol
-			JOIN orders o ON ol.order_id = o.id
-			WHERE o.status IN ('confirmed', 'paid') AND o.is_active = true
-			GROUP BY ol.ticket_tier_id
-		) sold ON tt.id = sold.ticket_tier_id
 		LEFT JOIN (
 			SELECT ih.ticket_tier_id, SUM(ih.quantity) as count
 			FROM inventory_holds ih
@@ -415,21 +396,20 @@ func (r *ticketTierRepository) GetTierStats(ctx context.Context, tierID uuid.UUI
 			tt.price,
 			tt.currency,
 			tt.quota,
-			COALESCE(sold.count, 0) as sold_count,
-			COALESCE(sold.revenue, 0) as revenue,
+			tt.sold as sold_count,
+			COALESCE((
+				SELECT SUM(ol.subtotal)
+				FROM order_lines ol
+				JOIN orders o ON ol.order_id = o.id
+				WHERE ol.ticket_tier_id = tt.id
+				AND o.status IN ('confirmed', 'paid') AND o.is_active = true
+			), 0) as revenue,
 			COALESCE(reserved.count, 0) as reserved_count,
 			CASE 
 				WHEN tt.quota IS NULL THEN 999999
-				ELSE tt.quota - COALESCE(sold.count, 0) - COALESCE(reserved.count, 0)
+				ELSE tt.quota - tt.sold - COALESCE(reserved.count, 0)
 			END as available_count
 		FROM ticket_tiers tt
-		LEFT JOIN (
-			SELECT ol.ticket_tier_id, SUM(ol.quantity) as count, SUM(ol.total_amount) as revenue
-			FROM order_lines ol
-			JOIN orders o ON ol.order_id = o.id
-			WHERE o.status IN ('confirmed', 'paid') AND o.is_active = true
-			GROUP BY ol.ticket_tier_id
-		) sold ON tt.id = sold.ticket_tier_id
 		LEFT JOIN (
 			SELECT ih.ticket_tier_id, SUM(ih.quantity) as count
 			FROM inventory_holds ih
@@ -499,7 +479,7 @@ func (r *ticketTierRepository) GetStats(ctx context.Context, tierID uuid.UUID) (
 			COALESCE(COUNT(DISTINCT CASE WHEN o.status = 'paid' THEN o.id END), 0) as paid_orders,
 			COALESCE(SUM(CASE WHEN o.status = 'paid' THEN ol.quantity ELSE 0 END), 0) as tickets_sold,
 			COALESCE(SUM(CASE WHEN o.status = 'pending' THEN ol.quantity ELSE 0 END), 0) as tickets_reserved,
-			COALESCE(SUM(CASE WHEN o.status = 'paid' THEN ol.total_price ELSE 0 END), 0) as total_revenue,
+			COALESCE(SUM(CASE WHEN o.status = 'paid' THEN ol.subtotal ELSE 0 END), 0) as total_revenue,
 			COALESCE(AVG(CASE WHEN o.status = 'paid' THEN ol.quantity END), 0) as avg_quantity_per_order,
 			MIN(CASE WHEN o.status = 'paid' THEN o.created_at END) as first_sale_at,
 			MAX(CASE WHEN o.status = 'paid' THEN o.created_at END) as last_sale_at

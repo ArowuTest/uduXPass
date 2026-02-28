@@ -31,17 +31,19 @@ func NewOrganizerRepositoryWithTx(tx *sqlx.Tx) repositories.OrganizerRepository 
 	return &organizerRepository{db: tx}
 }
 
+// selectColumns returns the columns that exist in both the entity struct and the database table
+// Actual table columns: id, name, slug, email, phone, website_url, logo_url, description, address, city, state, country, is_active, settings, created_at, updated_at
+const organizerSelectColumns = `id, name, slug, description, website_url AS website, email, phone, logo_url, is_active, created_at, updated_at`
+
 func (r *organizerRepository) Create(ctx context.Context, organizer *entities.Organizer) error {
 	query := `
 		INSERT INTO organizers (
-			id, name, slug, description, website, email, phone, 
-			logo_url, banner_url, address, city, state, country, 
-			postal_code, timezone, currency, is_active, 
+			id, name, slug, description, website_url, email, phone, 
+			logo_url, is_active, 
 			created_at, updated_at
 		) VALUES (
 			:id, :name, :slug, :description, :website, :email, :phone,
-			:logo_url, :banner_url, :address, :city, :state, :country,
-			:postal_code, :timezone, :currency, :is_active,
+			:logo_url, :is_active,
 			:created_at, :updated_at
 		)`
 	
@@ -66,13 +68,10 @@ func (r *organizerRepository) Create(ctx context.Context, organizer *entities.Or
 
 func (r *organizerRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.Organizer, error) {
 	var organizer entities.Organizer
-	query := `
-		SELECT id, name, slug, description, website, email, phone,
-			   logo_url, banner_url, address, city, state, country,
-			   postal_code, timezone, currency, is_active,
-			   created_at, updated_at
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM organizers 
-		WHERE id = $1 AND is_active = true`
+		WHERE id = $1 AND is_active = true`, organizerSelectColumns)
 	
 	err := r.db.GetContext(ctx, &organizer, query, id)
 	if err != nil {
@@ -87,13 +86,10 @@ func (r *organizerRepository) GetByID(ctx context.Context, id uuid.UUID) (*entit
 
 func (r *organizerRepository) GetBySlug(ctx context.Context, slug string) (*entities.Organizer, error) {
 	var organizer entities.Organizer
-	query := `
-		SELECT id, name, slug, description, website, email, phone,
-			   logo_url, banner_url, address, city, state, country,
-			   postal_code, timezone, currency, is_active,
-			   created_at, updated_at
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM organizers 
-		WHERE slug = $1 AND is_active = true`
+		WHERE slug = $1 AND is_active = true`, organizerSelectColumns)
 	
 	err := r.db.GetContext(ctx, &organizer, query, slug)
 	if err != nil {
@@ -108,13 +104,10 @@ func (r *organizerRepository) GetBySlug(ctx context.Context, slug string) (*enti
 
 func (r *organizerRepository) GetByEmail(ctx context.Context, email string) (*entities.Organizer, error) {
 	var organizer entities.Organizer
-	query := `
-		SELECT id, name, slug, description, website, email, phone,
-			   logo_url, banner_url, address, city, state, country,
-			   postal_code, timezone, currency, is_active,
-			   created_at, updated_at
+	query := fmt.Sprintf(`
+		SELECT %s
 		FROM organizers 
-		WHERE email = $1 AND is_active = true`
+		WHERE email = $1 AND is_active = true`, organizerSelectColumns)
 	
 	err := r.db.GetContext(ctx, &organizer, query, email)
 	if err != nil {
@@ -135,18 +128,10 @@ func (r *organizerRepository) Update(ctx context.Context, organizer *entities.Or
 			name = :name,
 			slug = :slug,
 			description = :description,
-			website = :website,
+			website_url = :website,
 			email = :email,
 			phone = :phone,
 			logo_url = :logo_url,
-			banner_url = :banner_url,
-			address = :address,
-			city = :city,
-			state = :state,
-			country = :country,
-			postal_code = :postal_code,
-			timezone = :timezone,
-			currency = :currency,
 			is_active = :is_active,
 			updated_at = :updated_at
 		WHERE id = :id AND is_active = true`
@@ -264,17 +249,22 @@ func (r *organizerRepository) List(ctx context.Context, filter repositories.Orga
 		orderBy = fmt.Sprintf("%s %s", filter.SortBy, direction)
 	}
 	
+	// Handle pagination defaults
+	if filter.Limit <= 0 {
+		filter.Limit = 20
+	}
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+	
 	// Build main query with pagination
 	offset := (filter.Page - 1) * filter.Limit
 	query := fmt.Sprintf(`
-		SELECT id, name, slug, description, website, email, phone,
-			   logo_url, banner_url, address, city, state, country,
-			   postal_code, timezone, currency, is_active,
-			   created_at, updated_at
+		SELECT %s
 		FROM organizers 
 		WHERE %s 
 		ORDER BY %s 
-		LIMIT $%d OFFSET $%d`, whereClause, orderBy, argIndex, argIndex+1)
+		LIMIT $%d OFFSET $%d`, organizerSelectColumns, whereClause, orderBy, argIndex, argIndex+1)
 	
 	args = append(args, filter.Limit, offset)
 	
@@ -362,4 +352,3 @@ func (r *organizerRepository) GetStats(ctx context.Context, organizerID uuid.UUI
 	
 	return &stats, nil
 }
-

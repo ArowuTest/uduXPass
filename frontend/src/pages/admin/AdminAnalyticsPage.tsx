@@ -102,7 +102,7 @@ const AdminAnalyticsPage: React.FC = () => {
   const handleExportAnalytics = async () => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:8080/v1/admin/export/events', {
+      const response = await fetch('/v1/admin/export/events', {
         headers: { 'Authorization': `Bearer ${adminToken}` }
       })
       

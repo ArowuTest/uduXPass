@@ -32,8 +32,15 @@ func NewOTPTokenRepository(db *sqlx.DB) repositories.OTPTokenRepository {
 
 func (r *otpTokenRepository) Create(ctx context.Context, token *entities.OTPToken) error {
 	query := `
-		INSERT INTO otp_tokens (id, phone, code, purpose, expires_at, is_used, created_at, updated_at)
-		VALUES (:id, :phone, :code, :purpose, :expires_at, :is_used, :created_at, :updated_at)
+		INSERT INTO otp_tokens (
+			id, phone, email, code, purpose, status, expires_at,
+			attempt_count, max_attempts, ip_address, user_agent,
+			created_at, updated_at
+		) VALUES (
+			:id, :phone, :email, :code, :purpose, :status, :expires_at,
+			:attempt_count, :max_attempts, :ip_address, :user_agent,
+			:created_at, :updated_at
+		)
 	`
 	
 	_, err := r.db.NamedExecContext(ctx, query, token)
@@ -47,7 +54,9 @@ func (r *otpTokenRepository) Create(ctx context.Context, token *entities.OTPToke
 func (r *otpTokenRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.OTPToken, error) {
 	var token entities.OTPToken
 	query := `
-		SELECT id, phone, code, purpose, expires_at, is_used, created_at, updated_at
+		SELECT id, phone, email, code, purpose, status, expires_at,
+			   used_at, attempt_count, max_attempts, ip_address, user_agent,
+			   created_at, updated_at
 		FROM otp_tokens 
 		WHERE id = $1
 	`
@@ -66,14 +75,16 @@ func (r *otpTokenRepository) GetByID(ctx context.Context, id uuid.UUID) (*entiti
 func (r *otpTokenRepository) GetByIdentifierAndPurpose(ctx context.Context, identifier string, purpose entities.OTPPurpose) (*entities.OTPToken, error) {
 	var token entities.OTPToken
 	query := `
-		SELECT id, phone, code, purpose, expires_at, is_used, created_at, updated_at
+		SELECT id, phone, email, code, purpose, status, expires_at,
+			   used_at, attempt_count, max_attempts, ip_address, user_agent,
+			   created_at, updated_at
 		FROM otp_tokens 
-		WHERE phone = $1 AND purpose = $2 AND is_used = false AND expires_at > NOW()
+		WHERE phone = $1 AND purpose = $2 AND status = 'pending' AND expires_at > NOW()
 		ORDER BY created_at DESC
 		LIMIT 1
 	`
 	
-	err := r.db.GetContext(ctx, &token, query, identifier, purpose)
+	err := r.db.GetContext(ctx, &token, query, identifier, string(purpose))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, entities.ErrOTPTokenNotFound
@@ -87,7 +98,9 @@ func (r *otpTokenRepository) GetByIdentifierAndPurpose(ctx context.Context, iden
 func (r *otpTokenRepository) GetByToken(ctx context.Context, tokenValue string) (*entities.OTPToken, error) {
 	var token entities.OTPToken
 	query := `
-		SELECT id, phone, code, purpose, expires_at, is_used, created_at, updated_at
+		SELECT id, phone, email, code, purpose, status, expires_at,
+			   used_at, attempt_count, max_attempts, ip_address, user_agent,
+			   created_at, updated_at
 		FROM otp_tokens 
 		WHERE code = $1
 	`
@@ -106,8 +119,11 @@ func (r *otpTokenRepository) GetByToken(ctx context.Context, tokenValue string) 
 func (r *otpTokenRepository) Update(ctx context.Context, token *entities.OTPToken) error {
 	query := `
 		UPDATE otp_tokens 
-		SET phone = :phone, code = :code, purpose = :purpose, expires_at = :expires_at, 
-		    is_used = :is_used, updated_at = :updated_at
+		SET phone = :phone, email = :email, code = :code, purpose = :purpose,
+		    status = :status, expires_at = :expires_at,
+		    attempt_count = :attempt_count, max_attempts = :max_attempts,
+		    ip_address = :ip_address, user_agent = :user_agent,
+		    updated_at = :updated_at
 		WHERE id = :id
 	`
 	
@@ -151,7 +167,9 @@ func (r *otpTokenRepository) Delete(ctx context.Context, id uuid.UUID) error {
 func (r *otpTokenRepository) GetByCode(ctx context.Context, code string) (*entities.OTPToken, error) {
 	var token entities.OTPToken
 	query := `
-		SELECT id, phone, code, purpose, expires_at, is_used, created_at, updated_at
+		SELECT id, phone, email, code, purpose, status, expires_at,
+			   used_at, attempt_count, max_attempts, ip_address, user_agent,
+			   created_at, updated_at
 		FROM otp_tokens 
 		WHERE code = $1
 	`
@@ -189,9 +207,12 @@ func (r *otpTokenRepository) List(ctx context.Context, filter *repositories.OTPT
 	}
 	
 	if filter.IsUsed != nil {
-		conditions = append(conditions, fmt.Sprintf("is_used = $%d", argIndex))
-		args = append(args, *filter.IsUsed)
-		argIndex++
+		// Use status column instead of deprecated is_used
+		if *filter.IsUsed {
+			conditions = append(conditions, "status = 'used'")
+		} else {
+			conditions = append(conditions, "status != 'used'")
+		}
 	}
 	
 	if filter.ExpiredOnly != nil && *filter.ExpiredOnly {
@@ -199,7 +220,7 @@ func (r *otpTokenRepository) List(ctx context.Context, filter *repositories.OTPT
 	}
 	
 	if filter.ActiveOnly != nil && *filter.ActiveOnly {
-		conditions = append(conditions, "expires_at > NOW() AND is_used = false")
+		conditions = append(conditions, "expires_at > NOW() AND status = 'pending'")
 	}
 	
 	whereClause := ""
@@ -219,7 +240,9 @@ func (r *otpTokenRepository) List(ctx context.Context, filter *repositories.OTPT
 	
 	// Build main query
 	query := fmt.Sprintf(`
-		SELECT id, phone, code, purpose, expires_at, is_used, created_at, updated_at
+		SELECT id, phone, email, code, purpose, status, expires_at,
+			   used_at, attempt_count, max_attempts, ip_address, user_agent,
+			   created_at, updated_at
 		FROM otp_tokens %s
 	`, whereClause)
 	
@@ -297,7 +320,7 @@ func (r *otpTokenRepository) ExistsByToken(ctx context.Context, tokenValue strin
 func (r *otpTokenRepository) MarkAsUsed(ctx context.Context, tokenID uuid.UUID) error {
 	query := `
 		UPDATE otp_tokens 
-		SET is_used = true, updated_at = NOW()
+		SET status = 'used', used_at = NOW(), updated_at = NOW()
 		WHERE id = $1
 	`
 	
@@ -339,7 +362,7 @@ func (r *otpTokenRepository) CountActiveTokensByPhone(ctx context.Context, phone
 	query := `
 		SELECT COUNT(*) 
 		FROM otp_tokens 
-		WHERE phone = $1 AND is_used = false AND expires_at > NOW()
+		WHERE phone = $1 AND status = 'pending' AND expires_at > NOW()
 	`
 	
 	err := r.db.GetContext(ctx, &count, query, phone)

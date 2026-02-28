@@ -34,10 +34,10 @@ func (r *orderLineRepository) Create(ctx context.Context, orderLine *entities.Or
 	query := `
 		INSERT INTO order_lines (
 			id, order_id, ticket_tier_id, quantity, unit_price, 
-			subtotal, created_at
+			subtotal, total_price, fees, taxes, discount_amount, created_at, updated_at
 		) VALUES (
 			:id, :order_id, :ticket_tier_id, :quantity, :unit_price,
-			:subtotal, :created_at
+			:subtotal, :total_price, :fees, :taxes, :discount_amount, :created_at, :updated_at
 		)`
 	
 	_, err := r.db.NamedExecContext(ctx, query, orderLine)
@@ -178,13 +178,17 @@ func (r *orderLineRepository) GetTicketTierSales(ctx context.Context, ticketTier
 
 func (r *orderLineRepository) Update(ctx context.Context, orderLine *entities.OrderLine) error {
 	query := `
-		UPDATE order_lines SET
-			order_id = :order_id,
-			ticket_tier_id = :ticket_tier_id,
-			quantity = :quantity,
-			unit_price = :unit_price,
-			subtotal = :subtotal
-		WHERE id = :id`
+			UPDATE order_lines SET
+				order_id = :order_id,
+				ticket_tier_id = :ticket_tier_id,
+				quantity = :quantity,
+				unit_price = :unit_price,
+				subtotal = :subtotal,
+				fees = :fees,
+				taxes = :taxes,
+				discount_amount = :discount_amount,
+				updated_at = :updated_at
+			WHERE id = :id`
 	
 	result, err := r.db.NamedExecContext(ctx, query, orderLine)
 	if err != nil {

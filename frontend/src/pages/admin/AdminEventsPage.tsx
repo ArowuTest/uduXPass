@@ -104,7 +104,7 @@ const AdminEventsPage: React.FC = () => {
       setError(null)
       
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:8080/v1/admin/events', {
+      const response = await fetch('/v1/admin/events', {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'

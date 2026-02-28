@@ -12,20 +12,24 @@ export default defineConfig({
     },
   },
   server: {
-    host: '0.0.0.0',
+    host: true,
     port: 5173,
     strictPort: true,
     hmr: {
       clientPort: 5173,
     },
     allowedHosts: [
+      '.manuspre.computer',
       '.manus.computer',
+      '.manus-asia.computer',
+      '.manuscomputer.ai',
+      '.manusvm.computer',
       'localhost',
       '127.0.0.1',
     ],
     proxy: {
       '/v1': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
       },

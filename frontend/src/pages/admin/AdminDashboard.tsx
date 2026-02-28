@@ -101,7 +101,7 @@ const AdminDashboard: React.FC = () => {
   const handleExportData = async () => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:8080/v1/admin/export/orders', {
+      const response = await fetch('/v1/admin/export/orders', {
         headers: { 'Authorization': `Bearer ${adminToken}` }
       })
       

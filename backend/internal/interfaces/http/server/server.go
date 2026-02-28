@@ -141,6 +141,7 @@ func NewServer(config *Config, dbManager *database.DatabaseManager) *Server {
 		dbManager.Orders(),
 		dbManager.Tickets(),
 		dbManager.ScannerUsers(),
+		dbManager.Organizers(),
 	)
 	scannerHandler := handlers.NewScannerHandler(
 		scannerAuthService,
@@ -404,6 +405,9 @@ func (s *Server) setupRoutes() {
 				adminProtected.DELETE("/scanner-users/:id", s.adminHandler.DeleteScannerUser)
 				adminProtected.POST("/scanner-users/:id/reset-password", s.adminHandler.ResetScannerUserPassword)
 				adminProtected.PUT("/scanner-users/:id/status", s.adminHandler.UpdateScannerUserStatus)
+				
+				// Organizer management
+				adminProtected.GET("/organizers", s.adminHandler.GetOrganizers)
 				
 				// Settings
 				adminProtected.GET("/settings", s.adminHandler.GetSettings)

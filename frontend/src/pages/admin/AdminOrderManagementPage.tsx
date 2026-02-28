@@ -90,7 +90,7 @@ const AdminOrderManagementPage: React.FC = () => {
   const fetchOrders = async (): Promise<void> => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:8080/v1/admin/orders', {
+      const response = await fetch('/v1/admin/orders', {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
@@ -134,7 +134,7 @@ const AdminOrderManagementPage: React.FC = () => {
   const handleViewOrder = async (orderId: string): Promise<void> => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch(`http://localhost:8080/v1/admin/orders/${orderId}`, {
+      const response = await fetch(`/v1/admin/orders/${orderId}`, {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
@@ -154,7 +154,7 @@ const AdminOrderManagementPage: React.FC = () => {
   const handleUpdateOrderStatus = async (orderId: string, newStatus: string): Promise<void> => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch(`http://localhost:8080/v1/admin/orders/${orderId}`, {
+      const response = await fetch(`/v1/admin/orders/${orderId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${adminToken}`,
@@ -180,7 +180,7 @@ const AdminOrderManagementPage: React.FC = () => {
     setIsExporting(true)
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:8080/v1/admin/orders/export', {
+      const response = await fetch('/v1/admin/orders/export', {
         headers: {
           'Authorization': `Bearer ${adminToken}`
         }
@@ -211,7 +211,7 @@ const AdminOrderManagementPage: React.FC = () => {
     if (confirm('Are you sure you want to refund this order? This action cannot be undone.')) {
       try {
         const adminToken = localStorage.getItem('adminToken')
-        const response = await fetch(`http://localhost:8080/v1/admin/orders/${orderId}/refund`, {
+        const response = await fetch(`/v1/admin/orders/${orderId}/refund`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${adminToken}`,
@@ -237,7 +237,7 @@ const AdminOrderManagementPage: React.FC = () => {
     if (confirm('Are you sure you want to cancel this order?')) {
       try {
         const adminToken = localStorage.getItem('adminToken')
-        const response = await fetch(`http://localhost:8080/v1/admin/orders/${orderId}/cancel`, {
+        const response = await fetch(`/v1/admin/orders/${orderId}/cancel`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${adminToken}`,

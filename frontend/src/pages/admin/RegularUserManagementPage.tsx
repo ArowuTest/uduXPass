@@ -96,7 +96,7 @@ const AdminUserManagementPage: React.FC = () => {
   const fetchUsers = async (): Promise<void> => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:8080/v1/admin/users', {
+      const response = await fetch('/v1/admin/users', {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
@@ -139,7 +139,7 @@ const AdminUserManagementPage: React.FC = () => {
   const handleViewUser = async (userId: string): Promise<void> => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch(`http://localhost:8080/v1/admin/users/${userId}`, {
+      const response = await fetch(`/v1/admin/users/${userId}`, {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
@@ -160,7 +160,7 @@ const AdminUserManagementPage: React.FC = () => {
     if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
       try {
         const adminToken = localStorage.getItem('adminToken')
-        const response = await fetch(`http://localhost:8080/v1/admin/users/${userId}`, {
+        const response = await fetch(`/v1/admin/users/${userId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${adminToken}`,
@@ -184,7 +184,7 @@ const AdminUserManagementPage: React.FC = () => {
   const handleUpdateUserStatus = async (userId: string, newStatus: string): Promise<void> => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch(`http://localhost:8080/v1/admin/users/${userId}`, {
+      const response = await fetch(`/v1/admin/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${adminToken}`,
@@ -223,7 +223,7 @@ const AdminUserManagementPage: React.FC = () => {
     e.preventDefault()
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:8080/v1/admin/users', {
+      const response = await fetch('/v1/admin/users', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${adminToken}`,
@@ -250,7 +250,7 @@ const AdminUserManagementPage: React.FC = () => {
   const handleEditUser = async (userId: string): Promise<void> => {
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch(`http://localhost:8080/v1/admin/users/${userId}`, {
+      const response = await fetch(`/v1/admin/users/${userId}`, {
         headers: {
           'Authorization': `Bearer ${adminToken}`,
           'Content-Type': 'application/json'
@@ -287,7 +287,7 @@ const AdminUserManagementPage: React.FC = () => {
         delete (updateData as any).password
       }
       
-      const response = await fetch(`http://localhost:8080/v1/admin/users/${editingUserId}`, {
+      const response = await fetch(`/v1/admin/users/${editingUserId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${adminToken}`,
@@ -316,7 +316,7 @@ const AdminUserManagementPage: React.FC = () => {
     setIsExporting(true)
     try {
       const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('http://localhost:8080/v1/admin/users/export', {
+      const response = await fetch('/v1/admin/users/export', {
         headers: {
           'Authorization': `Bearer ${adminToken}`
         }

@@ -13,6 +13,14 @@ interface Category {
   is_active?: boolean
 }
 
+interface Organizer {
+  id: string
+  name: string
+  slug: string
+  email: string
+  is_active: boolean
+}
+
 const AdminEventCreatePage: React.FC = () => {
   const navigate = useNavigate()
   
@@ -20,16 +28,25 @@ const AdminEventCreatePage: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([])
   const [loadingCategories, setLoadingCategories] = useState(true)
   
+  // Add organizers state
+  const [organizers, setOrganizers] = useState<Organizer[]>([])
+  const [selectedOrganizerId, setSelectedOrganizerId] = useState<string>('')
+  const [loadingOrganizers, setLoadingOrganizers] = useState(true)
+  
   // Get current date in proper format for datetime-local input
   const getCurrentDateTime = () => {
-    // Set to October 18, 2025 8:00 PM as per UAT script
-    return '2025-10-18T20:00'
+    const now = new Date()
+    now.setDate(now.getDate() + 30) // Default to 30 days from now
+    now.setHours(20, 0, 0, 0) // 8:00 PM
+    return now.toISOString().slice(0, 16)
   }
   
   // Get end date (4 hours after start)
   const getDefaultEndDateTime = () => {
-    // Set to October 19, 2025 12:00 AM (4 hours after 8 PM)
-    return '2025-10-19T00:00'
+    const now = new Date()
+    now.setDate(now.getDate() + 31) // Day after start
+    now.setHours(0, 0, 0, 0) // Midnight
+    return now.toISOString().slice(0, 16)
   }
   
   const [eventData, setEventData] = useState({
@@ -64,11 +81,11 @@ const AdminEventCreatePage: React.FC = () => {
     enablePaystack: true
   })
 
-  // Fetch categories on component mount
+  // Fetch categories and organizers on component mount
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('http://localhost:8080/v1/categories')
+        const response = await fetch('/v1/categories')
         const data = await response.json()
         console.log('Categories API response:', data)
         if (data.success && data.data) {
@@ -81,10 +98,30 @@ const AdminEventCreatePage: React.FC = () => {
       }
     }
 
+    const fetchOrganizers = async () => {
+      try {
+        const adminToken = localStorage.getItem('adminToken')
+        const response = await fetch('/v1/admin/organizers', {
+          headers: { 'Authorization': `Bearer ${adminToken}` }
+        })
+        const data = await response.json()
+        console.log('Organizers API response:', data)
+        if (data.success && data.data && data.data.length > 0) {
+          setOrganizers(data.data)
+          setSelectedOrganizerId(data.data[0].id) // Auto-select first organizer
+        }
+      } catch (error) {
+        console.error('Error fetching organizers:', error)
+      } finally {
+        setLoadingOrganizers(false)
+      }
+    }
+
     fetchCategories()
+    fetchOrganizers()
   }, [])
 
-  const handleInputChange = (field: string, value: string | number) => {
+  const handleInputChange = (field: string, value: string | number | boolean) => {
     setEventData(prev => {
       const updated = {
         ...prev,
@@ -186,25 +223,32 @@ const AdminEventCreatePage: React.FC = () => {
         return
       }
 
+      // Validate organizer selection
+      if (!selectedOrganizerId) {
+        alert('No organizer available. Please ensure an organizer exists in the system.')
+        return
+      }
+
       // Create API payload matching backend expectations
       const createEventData = {
-        organizer_id: '0ef31b06-6f14-4f7b-8b33-e62320f0b9bc', // Default organizer ID
+        organizer_id: selectedOrganizerId,
         name: eventData.title,
-        slug: eventData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
-        description: eventData.description,
+        slug: eventData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + Date.now().toString(36),
+        description: eventData.description || undefined,
         event_date: new Date(eventData.startDate).toISOString(),
         venue_name: eventData.venueName,
         venue_address: eventData.venueAddress || eventData.venueName,
         venue_city: eventData.venueCity,
-        venue_state: eventData.venueState || null,
+        venue_state: eventData.venueState || undefined,
         venue_country: eventData.venueCountry || 'Nigeria',
-        venue_capacity: parseInt(eventData.venueCapacity) || null,
-        ticket_tiers: validTiers.map(tier => ({
+        venue_capacity: parseInt(eventData.venueCapacity) || undefined,
+        ticket_tiers: validTiers.map((tier, index) => ({
           name: tier.name.trim(),
           price: parseFloat(tier.price),
           quota: parseInt(tier.quantity) || 100,
           max_per_order: tier.maxPerOrder || 10,
-          description: tier.description || ''
+          description: tier.description || undefined,
+          sort_order: index + 1
         })),
         enable_momo: eventData.enableMomo,
         enable_paystack: eventData.enablePaystack
@@ -216,7 +260,7 @@ const AdminEventCreatePage: React.FC = () => {
       console.log('=============================')
 
       // Use the correct API endpoint
-      const response = await fetch('http://localhost:8080/v1/admin/events', {
+      const response = await fetch('/v1/admin/events', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${adminToken}`,
@@ -291,6 +335,26 @@ const AdminEventCreatePage: React.FC = () => {
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-2">Organizer *</label>
+            <select
+              required
+              className="w-full p-2 border rounded-md"
+              value={selectedOrganizerId}
+              onChange={(e) => setSelectedOrganizerId(e.target.value)}
+              disabled={loadingOrganizers}
+            >
+              <option value="">
+                {loadingOrganizers ? 'Loading organizers...' : 'Select organizer'}
+              </option>
+              {organizers.map(org => (
+                <option key={org.id} value={org.id}>
+                  {org.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="mt-4">
