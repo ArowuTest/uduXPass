@@ -108,6 +108,9 @@ type TicketTierRepository interface {
 	
 	// GetAvailableQuantity retrieves the available quantity for a ticket tier
 	GetAvailableQuantity(ctx context.Context, ticketTierID uuid.UUID) (int, error)
+
+	// IncrementSold atomically increments the sold count for a ticket tier by the given quantity
+	IncrementSold(ctx context.Context, tierID uuid.UUID, quantity int) error
 }
 
 // PaymentRepository defines the interface for payment persistence operations

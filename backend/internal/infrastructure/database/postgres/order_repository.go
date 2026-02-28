@@ -86,11 +86,13 @@ func NewOrderRepositoryWithTx(tx *sqlx.Tx) repositories.OrderRepository {
 	if len(order.OrderLines) > 0 {
 		lineQuery := `
 			INSERT INTO order_lines (
-				id, order_id, ticket_tier_id, quantity, unit_price, 
-				total_price, created_at, updated_at
+				id, order_id, ticket_tier_id, quantity, unit_price,
+				subtotal, total_price, fees, taxes, discount_amount,
+				created_at, updated_at
 			) VALUES (
 				:id, :order_id, :ticket_tier_id, :quantity, :unit_price,
-				:total_price, :created_at, :updated_at
+				:subtotal, :total_price, :fees, :taxes, :discount_amount,
+				:created_at, :updated_at
 			)`
 		
 		for _, line := range order.OrderLines {

@@ -531,3 +531,28 @@ func (r *ticketTierRepository) GetAvailableQuantity(ctx context.Context, ticketT
 	return availableQuantity, nil
 }
 
+
+// IncrementSold atomically increments the sold count for a ticket tier by the given quantity.
+// Uses a single atomic UPDATE to prevent race conditions under concurrent load.
+func (r *ticketTierRepository) IncrementSold(ctx context.Context, tierID uuid.UUID, quantity int) error {
+	query := `
+		UPDATE ticket_tiers
+		SET sold = sold + $1, updated_at = NOW()
+		WHERE id = $2 AND is_active = true`
+
+	result, err := r.db.ExecContext(ctx, query, quantity, tierID)
+	if err != nil {
+		return fmt.Errorf("failed to increment sold count for tier %s: %w", tierID, err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return entities.ErrTicketTierNotFound
+	}
+
+	return nil
+}

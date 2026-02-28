@@ -44,7 +44,7 @@ func NewOrderService(
 // CreateOrderRequest represents a create order request
 type CreateOrderRequest struct {
 	UserID       uuid.UUID             `json:"user_id" validate:"required"`
-	EventID      uuid.UUID             `json:"event_id" validate:"required"`
+	EventID      uuid.UUID             `json:"event_id"`  // Optional: derived from first ticket tier if not provided
 	OrderLines   []CreateOrderLineItem `json:"order_lines"` // Standard field name
 	Items        []CreateOrderLineItem `json:"items"`        // Alias for order_lines (frontend compatibility)
 	CustomerInfo *CustomerInfo         `json:"customer_info,omitempty"`
@@ -103,6 +103,21 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
+	// Validate at least one order line before anything else
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+
+	// If EventID not provided, derive it from the first ticket tier
+	if req.EventID == uuid.Nil {
+		firstTierID := req.GetOrderLines()[0].TicketTierID
+		tier, err := s.ticketTierRepo.GetByID(ctx, firstTierID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get ticket tier: %w", err)
+		}
+		req.EventID = tier.EventID
+	}
+
 	// Validate event exists and is active
 	event, err := s.eventRepo.GetByID(ctx, req.EventID)
 	if err != nil {
@@ -127,6 +142,8 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 	}
 	
 	order := entities.NewOrder(req.EventID.String(), customerEmail)
+	// Set the user ID on the order so ownership checks work
+	order.UserID = &req.UserID
 	
 	// Set customer info if provided
 	if req.CustomerInfo != nil {
@@ -161,11 +178,6 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *CreateOrderRequest)
 
 	var orderLines []*entities.OrderLine
 	var totalAmount float64
-
-	// Validate at least one order line
-	if err := req.Validate(); err != nil {
-		return nil, err
-	}
 
 	// Process each order line
 	for _, lineItem := range req.GetOrderLines() {

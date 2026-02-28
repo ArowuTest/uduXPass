@@ -126,30 +126,37 @@ export default function Scanner() {
         // Online - use API validation
         console.log('[Scanner] Using online validation');
         result = await scannerApi.validateTicket({
-          qr_code_data: decodedText,
-          session_id: activeSession.id,
+          ticket_code: decodedText,
+          event_id: activeSession.event_id,
         });
       }
 
       // Handle validation result
-      if (result.success) {
+      if (result.success && result.valid) {
         setLocation('/validation-success', { 
           state: { 
-            ticket: result.data?.ticket || result.ticket,
+            ticket: {
+              id: result.ticket_id,
+              serial_number: result.serial_number,
+              ticket_type: result.ticket_type,
+              holder_name: result.holder_name,
+              validation_time: result.validation_time,
+              already_validated: result.already_validated,
+            },
             message: result.message || 'Ticket validated successfully',
-            offline: result.offline || false
+            offline: (result as any).offline || false
           } 
         });
       } else {
-        // Determine error type for different screens
-        const errorType = result.error;
-        
         setLocation('/validation-error', { 
           state: { 
-            message: result.error || result.message || 'Invalid ticket',
-            ticket: result.data?.ticket || result.ticket,
-            errorType: errorType,
-            offline: result.offline || false
+            message: result.message || 'Invalid ticket',
+            ticket: {
+              id: result.ticket_id,
+              serial_number: result.serial_number,
+            },
+            errorType: result.already_validated ? 'ALREADY_VALIDATED' : 'INVALID',
+            offline: (result as any).offline || false
           } 
         });
       }

@@ -4,54 +4,62 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/uduxpass/backend/internal/domain/entities"
 	"github.com/uduxpass/backend/internal/domain/repositories"
-	"github.com/uduxpass/backend/pkg/jwt"
+	pkgjwt "github.com/uduxpass/backend/pkg/jwt"
 )
 
-// ScannerAuthService handles scanner authentication and session management
-type ScannerAuthService struct {
-	repoManager repositories.RepositoryManager
-	jwtService  jwt.Service
+// ticketJWTClaims mirrors the claims structure used by the payment service when
+// signing ticket QR codes. The scanner verifies the signature before any DB lookup.
+type ticketJWTClaims struct {
+	TicketID     string `json:"tid"`
+	EventID      string `json:"eid"`
+	SerialNumber string `json:"sn"`
+	OrderLineID  string `json:"olid"`
+	jwt.RegisteredClaims
 }
 
-// NewScannerAuthService creates a new scanner authentication service
+// ScannerAuthService handles scanner authentication, session management, and ticket validation.
+type ScannerAuthService struct {
+	repoManager     repositories.RepositoryManager
+	jwtService      pkgjwt.Service
+	ticketJWTSecret []byte // same secret used by PaymentService to sign ticket JWTs
+}
+
+// NewScannerAuthService creates a new scanner authentication service.
+// jwtSecret is used both for scanner session JWTs and for verifying ticket QR code JWTs.
 func NewScannerAuthService(repoManager repositories.RepositoryManager, jwtSecret string) *ScannerAuthService {
-	jwtService := jwt.NewJWTService(jwtSecret, 15*time.Minute, 7*24*time.Hour, "uduxpass-scanner")
+	jwtService := pkgjwt.NewJWTService(jwtSecret, 15*time.Minute, 7*24*time.Hour, "uduxpass-scanner")
 	return &ScannerAuthService{
-		repoManager: repoManager,
-		jwtService:  jwtService,
+		repoManager:     repoManager,
+		jwtService:      jwtService,
+		ticketJWTSecret: []byte(jwtSecret),
 	}
 }
 
-// Login authenticates a scanner user and returns tokens
+// Login authenticates a scanner user and returns JWT tokens.
 func (s *ScannerAuthService) Login(ctx context.Context, username, password, clientIP, userAgent string) (*entities.ScannerLoginResponse, error) {
-	// Get scanner by username
 	fmt.Printf("DEBUG: Attempting to find scanner with username: %s\n", username)
 	scanner, err := s.repoManager.ScannerUsers().GetByUsername(ctx, username)
 	if err != nil {
 		fmt.Printf("DEBUG: GetByUsername failed with error: %v\n", err)
-		// Record failed login attempt
 		s.recordLoginAttempt(ctx, nil, clientIP, userAgent, false)
 		return &entities.ScannerLoginResponse{
 			Success: false,
 			Message: "Invalid username or password",
 		}, nil
 	}
-	
+
 	fmt.Printf("DEBUG: Found scanner: %s, Status: %s\n", scanner.Username, scanner.Status)
-	fmt.Printf("DEBUG: Scanner ID: %s\n", scanner.ID)
-	fmt.Printf("DEBUG: Password hash length: %d\n", len(scanner.PasswordHash))
 
 	// Check if account is locked
 	if scanner.IsLocked() {
-		fmt.Printf("DEBUG: Scanner account is locked\n")
 		s.recordLoginAttempt(ctx, &scanner.ID, clientIP, userAgent, false)
 		return &entities.ScannerLoginResponse{
 			Success: false,
@@ -61,7 +69,6 @@ func (s *ScannerAuthService) Login(ctx context.Context, username, password, clie
 
 	// Check if account is active
 	if scanner.Status != entities.ScannerStatusActive {
-		fmt.Printf("DEBUG: Scanner account is not active, status: %s\n", scanner.Status)
 		s.recordLoginAttempt(ctx, &scanner.ID, clientIP, userAgent, false)
 		return &entities.ScannerLoginResponse{
 			Success: false,
@@ -69,7 +76,7 @@ func (s *ScannerAuthService) Login(ctx context.Context, username, password, clie
 		}, nil
 	}
 
-	// Verify password using stored hash
+	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(scanner.PasswordHash), []byte(password)); err != nil {
 		s.recordLoginAttempt(ctx, &scanner.ID, clientIP, userAgent, false)
 		return &entities.ScannerLoginResponse{
@@ -77,7 +84,7 @@ func (s *ScannerAuthService) Login(ctx context.Context, username, password, clie
 			Message: "Invalid username or password",
 		}, nil
 	}
-	
+
 	fmt.Printf("DEBUG: Password verification successful!\n")
 
 	// Generate JWT tokens
@@ -86,10 +93,7 @@ func (s *ScannerAuthService) Login(ctx context.Context, username, password, clie
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
 
-	// Record successful login
 	s.recordLoginAttempt(ctx, &scanner.ID, clientIP, userAgent, true)
-
-	// Log login activity
 	s.logActivity(ctx, scanner.ID, "login", nil, nil, nil, map[string]interface{}{
 		"ip_address": clientIP,
 		"user_agent": userAgent,
@@ -105,9 +109,8 @@ func (s *ScannerAuthService) Login(ctx context.Context, username, password, clie
 	}, nil
 }
 
-// RefreshToken generates new tokens using a refresh token
+// RefreshToken generates new tokens using a refresh token.
 func (s *ScannerAuthService) RefreshToken(ctx context.Context, refreshToken string) (*entities.ScannerLoginResponse, error) {
-	// Validate refresh token and extract scanner ID
 	claims, err := s.jwtService.ValidateRefreshToken(refreshToken)
 	if err != nil {
 		return &entities.ScannerLoginResponse{
@@ -124,7 +127,6 @@ func (s *ScannerAuthService) RefreshToken(ctx context.Context, refreshToken stri
 		}, nil
 	}
 
-	// Get scanner details
 	scanner, err := s.repoManager.ScannerUsers().GetByID(ctx, scannerID)
 	if err != nil {
 		return &entities.ScannerLoginResponse{
@@ -133,7 +135,6 @@ func (s *ScannerAuthService) RefreshToken(ctx context.Context, refreshToken stri
 		}, nil
 	}
 
-	// Check if scanner is still active
 	if scanner.Status != entities.ScannerStatusActive {
 		return &entities.ScannerLoginResponse{
 			Success: false,
@@ -141,7 +142,6 @@ func (s *ScannerAuthService) RefreshToken(ctx context.Context, refreshToken stri
 		}, nil
 	}
 
-	// Generate new tokens
 	accessToken, newRefreshToken, expiresIn, err := s.generateTokens(scanner)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
@@ -157,23 +157,19 @@ func (s *ScannerAuthService) RefreshToken(ctx context.Context, refreshToken stri
 	}, nil
 }
 
-// Logout handles scanner logout
+// Logout handles scanner logout and ends any active session.
 func (s *ScannerAuthService) Logout(ctx context.Context, scannerID uuid.UUID) error {
-	// End any active sessions
 	session, err := s.repoManager.ScannerUsers().GetActiveSession(ctx, scannerID)
 	if err == nil && session != nil {
 		s.EndSession(ctx, session.ID)
 	}
-
-	// Log logout activity
 	s.logActivity(ctx, scannerID, "logout", nil, nil, nil, nil)
-
 	return nil
 }
 
-// StartSession starts a new scanning session
+// StartSession starts a new scanning session for an event.
+// The scanner must be assigned to the event before a session can be started.
 func (s *ScannerAuthService) StartSession(ctx context.Context, scannerID, eventID uuid.UUID) (*entities.ScannerSession, error) {
-	// Check if scanner is assigned to this event
 	assignedEvents, err := s.repoManager.ScannerUsers().GetAssignedEvents(ctx, scannerID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check event assignment: %w", err)
@@ -191,12 +187,11 @@ func (s *ScannerAuthService) StartSession(ctx context.Context, scannerID, eventI
 		return nil, errors.New("scanner is not assigned to this event")
 	}
 
-	// End any existing active session
+	// End any existing active session before starting a new one
 	if activeSession, err := s.repoManager.ScannerUsers().GetActiveSession(ctx, scannerID); err == nil && activeSession != nil {
 		s.EndSession(ctx, activeSession.ID)
 	}
 
-	// Create new session
 	session := &entities.ScannerSession{
 		ID:           uuid.New(),
 		ScannerID:    scannerID,
@@ -213,7 +208,6 @@ func (s *ScannerAuthService) StartSession(ctx context.Context, scannerID, eventI
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 
-	// Log session start
 	resourceType := "scanner_session"
 	s.logActivity(ctx, scannerID, "session_start", &session.ID, &resourceType, &session.ID, map[string]interface{}{
 		"event_id": eventID,
@@ -222,110 +216,212 @@ func (s *ScannerAuthService) StartSession(ctx context.Context, scannerID, eventI
 	return session, nil
 }
 
-// EndSession ends a scanning session
+// EndSession ends a scanning session.
 func (s *ScannerAuthService) EndSession(ctx context.Context, sessionID uuid.UUID) error {
 	if err := s.repoManager.ScannerUsers().EndSession(ctx, sessionID); err != nil {
 		return fmt.Errorf("failed to end session: %w", err)
 	}
-
 	return nil
 }
 
-// ValidateTicket validates a ticket and records the scan
+// ValidateTicket validates a ticket QR code and records the scan result.
+//
+// Validation flow (enterprise-grade, per SRS FR-3.2):
+//  1. Verify the JWT signature of the QR code data — reject tampered codes immediately
+//  2. Extract ticket_id and event_id from the JWT claims
+//  3. Verify the event_id in the JWT matches the scanner's active session event
+//  4. Look up the ticket in the DB by ID
+//  5. Check ticket status: active → valid; redeemed → duplicate; voided/other → invalid
+//  6. On valid scan: atomically mark the ticket as redeemed in the DB
+//  7. Record the validation event in ticket_validations
+//  8. Update session statistics
 func (s *ScannerAuthService) ValidateTicket(ctx context.Context, scannerID, sessionID, eventID uuid.UUID, ticketCode string, notes *string) (*entities.TicketValidationResponse, error) {
-	// Look up the actual ticket
-	ticket, err := s.repoManager.Tickets().GetByQRCode(ctx, ticketCode)
-	if err != nil {
-		return &entities.TicketValidationResponse{
-			Success:        false,
-			Valid:          false,
-			Message:        "Ticket not found",
-			ValidationTime: time.Now(),
-		}, nil
-	}
-	
 	response := &entities.TicketValidationResponse{
 		ValidationTime: time.Now(),
 	}
 
-	// Check if ticket is valid
-	if ticket.Status == "active" {
-		response.Success = true
-		response.Valid = true
-		response.Message = "Ticket validated successfully"
-		standardType := "standard"
-		holderName := ""
-		response.TicketType = &standardType // Could be enhanced with ticket tier info
-		response.HolderName = &holderName // Could be enhanced with attendee info
-		response.AlreadyValidated = false
-
-		// Record validation
-		validation := &entities.TicketValidation{
-			ID:                  uuid.New(),
-			TicketID:            ticket.ID, // Use actual ticket ID
-			ScannerID:           scannerID,
-			SessionID:           sessionID,
-			ValidationResult:    "valid",
-			ValidationTimestamp: time.Now(),
-			Notes:               notes,
-		}
-
-		if err := s.repoManager.ScannerUsers().ValidateTicket(ctx, validation); err != nil {
-			return nil, fmt.Errorf("failed to record validation: %w", err)
-		}
-
-		// Update session stats
-		s.repoManager.ScannerUsers().UpdateSessionStats(ctx, sessionID, 1, 1, 0, s.getTicketPrice(ticketCode))
-
-		// Log validation activity
-		ticketResourceType := "ticket"
-		s.logActivity(ctx, scannerID, "ticket_validation", &sessionID, &ticketResourceType, &validation.TicketID, map[string]interface{}{
-			"validation_result": "valid",
-			"ticket_code":       ticketCode,
-			"event_id":          eventID,
-		})
-	} else {
+	// --- Step 1: Verify JWT signature ---
+	claims, err := s.verifyTicketJWT(ticketCode)
+	if err != nil {
+		// JWT is invalid or tampered — record as invalid scan and return
 		response.Success = true
 		response.Valid = false
-		response.Message = "Invalid ticket code"
+		response.Message = "Invalid ticket: QR code signature verification failed"
 		response.AlreadyValidated = false
 
-		// Record invalid validation
-		validation := &entities.TicketValidation{
-			ID:                  uuid.New(),
-			TicketID:            uuid.New(),
-			ScannerID:           scannerID,
-			SessionID:           sessionID,
-			ValidationResult:    "invalid",
-			ValidationTimestamp: time.Now(),
-			Notes:               notes,
-		}
-
-		s.repoManager.ScannerUsers().ValidateTicket(ctx, validation)
+		s.recordInvalidScan(ctx, scannerID, sessionID, notes, "invalid_signature")
 		s.repoManager.ScannerUsers().UpdateSessionStats(ctx, sessionID, 1, 0, 1, 0)
-
-		// Log validation activity
-		ticketResourceType := "ticket"
-		s.logActivity(ctx, scannerID, "ticket_validation", &sessionID, &ticketResourceType, &validation.TicketID, map[string]interface{}{
-			"validation_result": "invalid",
-			"ticket_code":       ticketCode,
-			"event_id":          eventID,
-		})
+		return response, nil
 	}
 
+	// --- Step 2: Parse ticket ID and event ID from claims ---
+	ticketID, err := uuid.Parse(claims.TicketID)
+	if err != nil {
+		response.Success = true
+		response.Valid = false
+		response.Message = "Invalid ticket: malformed ticket ID in QR code"
+		s.recordInvalidScan(ctx, scannerID, sessionID, notes, "malformed_claims")
+		s.repoManager.ScannerUsers().UpdateSessionStats(ctx, sessionID, 1, 0, 1, 0)
+		return response, nil
+	}
+
+	claimedEventID, err := uuid.Parse(claims.EventID)
+	if err != nil {
+		response.Success = true
+		response.Valid = false
+		response.Message = "Invalid ticket: malformed event ID in QR code"
+		s.recordInvalidScan(ctx, scannerID, sessionID, notes, "malformed_claims")
+		s.repoManager.ScannerUsers().UpdateSessionStats(ctx, sessionID, 1, 0, 1, 0)
+		return response, nil
+	}
+
+	// --- Step 3: Verify the ticket belongs to this event ---
+	if claimedEventID != eventID {
+		response.Success = true
+		response.Valid = false
+		response.Message = "Invalid ticket: this ticket is for a different event"
+		s.recordValidationEvent(ctx, ticketID, scannerID, sessionID, "wrong_event", notes)
+		s.repoManager.ScannerUsers().UpdateSessionStats(ctx, sessionID, 1, 0, 1, 0)
+		return response, nil
+	}
+
+	// --- Step 4: Look up ticket in the database ---
+	ticket, err := s.repoManager.Tickets().GetByID(ctx, ticketID)
+	if err != nil {
+		response.Success = true
+		response.Valid = false
+		response.Message = "Invalid ticket: ticket not found in system"
+		s.recordInvalidScan(ctx, scannerID, sessionID, notes, "not_found")
+		s.repoManager.ScannerUsers().UpdateSessionStats(ctx, sessionID, 1, 0, 1, 0)
+		return response, nil
+	}
+
+	// --- Step 5: Check ticket status ---
+	switch ticket.Status {
+	case entities.TicketStatusRedeemed:
+		// Duplicate scan — ticket already used
+		response.Success = true
+		response.Valid = false
+		response.AlreadyValidated = true
+		response.Message = fmt.Sprintf("Ticket already redeemed at %s", ticket.RedeemedAt.Format("02 Jan 2006 15:04:05"))
+		s.recordValidationEvent(ctx, ticketID, scannerID, sessionID, "already_redeemed", notes)
+		s.repoManager.ScannerUsers().UpdateSessionStats(ctx, sessionID, 1, 0, 1, 0)
+		return response, nil
+
+	case entities.TicketStatusVoided:
+		response.Success = true
+		response.Valid = false
+		response.Message = "Invalid ticket: this ticket has been voided"
+		s.recordValidationEvent(ctx, ticketID, scannerID, sessionID, "voided", notes)
+		s.repoManager.ScannerUsers().UpdateSessionStats(ctx, sessionID, 1, 0, 1, 0)
+		return response, nil
+
+	case entities.TicketStatusActive:
+		// Valid ticket — proceed to redeem
+
+	default:
+		response.Success = true
+		response.Valid = false
+		response.Message = fmt.Sprintf("Invalid ticket: unexpected status '%s'", ticket.Status)
+		s.recordValidationEvent(ctx, ticketID, scannerID, sessionID, "invalid_status", notes)
+		s.repoManager.ScannerUsers().UpdateSessionStats(ctx, sessionID, 1, 0, 1, 0)
+		return response, nil
+	}
+
+	// --- Step 6: Mark ticket as redeemed ---
+	redeemedBy := scannerID.String()
+	if err := ticket.Redeem(redeemedBy); err != nil {
+		// Should not happen since we already checked status == active, but handle defensively
+		return nil, fmt.Errorf("failed to redeem ticket %s: %w", ticketID, err)
+	}
+
+	if err := s.repoManager.Tickets().MarkRedeemed(ctx, ticketID, redeemedBy); err != nil {
+		return nil, fmt.Errorf("failed to persist ticket redemption for %s: %w", ticketID, err)
+	}
+
+	// --- Step 7: Record the validation event ---
+	s.recordValidationEvent(ctx, ticketID, scannerID, sessionID, "valid", notes)
+
+	// --- Step 8: Update session statistics ---
+	s.repoManager.ScannerUsers().UpdateSessionStats(ctx, sessionID, 1, 1, 0, 0)
+
+	// Log audit trail
+	ticketResourceType := "ticket"
+	s.logActivity(ctx, scannerID, "ticket_validation", &sessionID, &ticketResourceType, &ticketID, map[string]interface{}{
+		"validation_result": "valid",
+		"serial_number":     claims.SerialNumber,
+		"event_id":          eventID,
+	})
+
+	// Build success response
+	response.Success = true
+	response.Valid = true
+	response.AlreadyValidated = false
+	response.Message = "Ticket validated successfully"
+	serialNumber := claims.SerialNumber
+	response.SerialNumber = &serialNumber
+
 	return response, nil
+}
+
+// verifyTicketJWT parses and verifies the HMAC-SHA256 signature of a ticket QR code JWT.
+// Returns the claims on success, or an error if the token is invalid or tampered.
+func (s *ScannerAuthService) verifyTicketJWT(tokenString string) (*ticketJWTClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &ticketJWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+		// Enforce HMAC signing method — reject asymmetric key attacks
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return s.ticketJWTSecret, nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("ticket JWT verification failed: %w", err)
+	}
+
+	claims, ok := token.Claims.(*ticketJWTClaims)
+	if !ok || !token.Valid {
+		return nil, fmt.Errorf("invalid ticket JWT claims")
+	}
+
+	// Validate required claims are present
+	if claims.TicketID == "" || claims.EventID == "" {
+		return nil, fmt.Errorf("ticket JWT missing required claims")
+	}
+
+	return claims, nil
+}
+
+// recordValidationEvent records a ticket validation event in the ticket_validations table.
+func (s *ScannerAuthService) recordValidationEvent(ctx context.Context, ticketID, scannerID, sessionID uuid.UUID, result string, notes *string) {
+	validation := &entities.TicketValidation{
+		ID:                  uuid.New(),
+		TicketID:            ticketID,
+		ScannerID:           scannerID,
+		SessionID:           sessionID,
+		ValidationResult:    result,
+		ValidationTimestamp: time.Now(),
+		Notes:               notes,
+	}
+	if err := s.repoManager.ScannerUsers().ValidateTicket(ctx, validation); err != nil {
+		fmt.Printf("Warning: failed to record validation event for ticket %s: %v\n", ticketID, err)
+	}
+}
+
+// recordInvalidScan records a validation event for a scan that failed before a ticket ID was known.
+// Uses a nil UUID for the ticket ID since no valid ticket was identified.
+func (s *ScannerAuthService) recordInvalidScan(ctx context.Context, scannerID, sessionID uuid.UUID, notes *string, result string) {
+	s.recordValidationEvent(ctx, uuid.Nil, scannerID, sessionID, result, notes)
 }
 
 // Helper methods
 
 func (s *ScannerAuthService) generateTokens(scanner *entities.ScannerUser) (string, string, int64, error) {
-	// Generate access token
 	accessToken, err := s.jwtService.GenerateAccessToken(scanner.ID, string(scanner.Role))
 	if err != nil {
 		return "", "", 0, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	// Generate refresh token
 	refreshToken, err := s.jwtService.GenerateRefreshToken(scanner.ID, string(scanner.Role))
 	if err != nil {
 		return "", "", 0, fmt.Errorf("failed to generate refresh token: %w", err)
@@ -365,57 +461,3 @@ func (s *ScannerAuthService) logActivity(ctx context.Context, scannerID uuid.UUI
 
 	s.repoManager.ScannerUsers().LogActivity(ctx, log)
 }
-
-// Demo validation helpers
-func (s *ScannerAuthService) isDemoTicketCode(code string) bool {
-	// Demo validation logic - accept codes that contain certain patterns
-	code = strings.ToUpper(code)
-	validPatterns := []string{
-		"UDUXPASS",
-		"VIP",
-		"PREMIUM",
-		"GENERAL",
-		"DEMO",
-		"TEST",
-	}
-
-	for _, pattern := range validPatterns {
-		if strings.Contains(code, pattern) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (s *ScannerAuthService) extractTicketType(code string) *string {
-	code = strings.ToUpper(code)
-	if strings.Contains(code, "VIP") {
-		ticketType := "VIP"
-		return &ticketType
-	}
-	if strings.Contains(code, "PREMIUM") {
-		ticketType := "Premium"
-		return &ticketType
-	}
-	ticketType := "General Admission"
-	return &ticketType
-}
-
-func (s *ScannerAuthService) extractHolderName(code string) *string {
-	// Demo logic - return a demo name
-	holderName := "Demo User"
-	return &holderName
-}
-
-func (s *ScannerAuthService) getTicketPrice(code string) float64 {
-	code = strings.ToUpper(code)
-	if strings.Contains(code, "VIP") {
-		return 10000.0 // NGN 10,000
-	}
-	if strings.Contains(code, "PREMIUM") {
-		return 5000.0 // NGN 5,000
-	}
-	return 2500.0 // NGN 2,500
-}
-

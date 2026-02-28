@@ -229,6 +229,7 @@ type TicketValidationResponse struct {
 	Valid            bool      `json:"valid"`
 	Message          string    `json:"message"`
 	TicketID         *string   `json:"ticket_id,omitempty"`
+	SerialNumber     *string   `json:"serial_number,omitempty"`
 	TicketType       *string   `json:"ticket_type,omitempty"`
 	HolderName       *string   `json:"holder_name,omitempty"`
 	ValidationTime   time.Time `json:"validation_time"`

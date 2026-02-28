@@ -91,17 +91,10 @@ export default function CreateSession() {
       return;
     }
 
-    if (!location.trim()) {
-      toast.error('Please enter a location');
-      return;
-    }
-
     setIsLoading(true);
     try {
       await scannerApi.createSession({
         event_id: selectedEventId,
-        location: location.trim(),
-        notes: notes.trim() || undefined,
       });
 
       toast.success('Scanning session created successfully!');

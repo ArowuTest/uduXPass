@@ -408,8 +408,8 @@ func (r *scannerUserRepository) GetActiveSession(ctx context.Context, scannerID 
 func (r *scannerUserRepository) EndSession(ctx context.Context, sessionID uuid.UUID) error {
 	query := `
 		UPDATE scanner_sessions 
-		SET ended_at = NOW() 
-		WHERE id = $1 AND ended_at IS NULL`
+		SET end_time = NOW(), is_active = false 
+		WHERE id = $1 AND end_time IS NULL`
 	
 	result, err := r.db.ExecContext(ctx, query, sessionID)
 	if err != nil {
@@ -625,10 +625,10 @@ func (r *scannerUserRepository) GetValidationHistory(ctx context.Context, scanne
 	
 	// Build main query with pagination
 	query := fmt.Sprintf(`
-		SELECT id, ticket_id, scanner_id, session_id, validation_result, 
-			   error_message, validated_at, ip_address
+		SELECT id, ticket_id, scanner_id, session_id, validation_result,
+			   validation_timestamp, notes
 		FROM ticket_validations %s
-		ORDER BY validated_at DESC`, whereClause)
+		ORDER BY validation_timestamp DESC`, whereClause)
 	
 	if filter != nil && filter.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT $%d", argIndex)
@@ -682,7 +682,7 @@ func (r *scannerUserRepository) GetScannerStats(ctx context.Context, scannerID u
 				WHEN SUM(scans_count) > 0 THEN (SUM(valid_scans)::float / SUM(scans_count)::float) * 100
 				ELSE 0 
 			END as success_rate,
-			MAX(started_at) as last_active_at
+			MAX(start_time) as last_active_at
 		FROM scanner_sessions %s
 		GROUP BY scanner_id`, whereClause)
 	
@@ -713,7 +713,7 @@ func (r *scannerUserRepository) GetEventScanStats(ctx context.Context, eventID u
 		SELECT 
 			$1 as event_id,
 			COUNT(DISTINCT scanner_id) as total_scanners,
-			COUNT(DISTINCT CASE WHEN ended_at IS NULL THEN scanner_id END) as active_scanners,
+			COUNT(DISTINCT CASE WHEN end_time IS NULL THEN scanner_id END) as active_scanners,
 			COALESCE(SUM(scans_count), 0) as total_scans,
 			COALESCE(SUM(valid_scans), 0) as valid_scans,
 			COALESCE(SUM(invalid_scans), 0) as invalid_scans,
@@ -750,7 +750,7 @@ func (r *scannerUserRepository) GetEventScanStats(ctx context.Context, eventID u
 				WHEN SUM(ss.scans_count) > 0 THEN (SUM(ss.valid_scans)::float / SUM(ss.scans_count)::float) * 100
 				ELSE 0 
 			END as success_rate,
-			MAX(ss.started_at) as last_scan_at
+			MAX(ss.start_time) as last_scan_at
 		FROM scanner_sessions ss
 		JOIN scanner_users su ON ss.scanner_id = su.id
 		WHERE ss.event_id = $1

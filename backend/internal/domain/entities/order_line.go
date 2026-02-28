@@ -21,6 +21,15 @@ type OrderLine struct {
 	CreatedAt      time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
 
+	// Denormalised fields (populated by JOIN queries in GetByOrder/GetByID)
+	TicketTierName        string  `json:"ticket_tier_name,omitempty" db:"ticket_tier_name"`
+	TicketTierDescription string  `json:"ticket_tier_description,omitempty" db:"ticket_tier_description"`
+	TicketTierPrice       float64 `json:"ticket_tier_price,omitempty" db:"ticket_tier_price"`
+	TicketTierQuota       int     `json:"ticket_tier_quota,omitempty" db:"ticket_tier_quota"`
+	TicketTierEventID     string  `json:"ticket_tier_event_id,omitempty" db:"ticket_tier_event_id"`
+	EventTitle            string  `json:"event_title,omitempty" db:"event_title"`
+	EventSlug             string  `json:"event_slug,omitempty" db:"event_slug"`
+
 	// Relations
 	Order      *Order      `json:"order,omitempty"`
 	TicketTier *TicketTier `json:"ticket_tier,omitempty"`

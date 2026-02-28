@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/uduxpass/backend/internal/domain/entities"
+	"github.com/uduxpass/backend/internal/domain/repositories"
 	"github.com/uduxpass/backend/internal/infrastructure/database"
 	"github.com/uduxpass/backend/internal/infrastructure/email"
 	"github.com/uduxpass/backend/internal/infrastructure/payments"
@@ -119,12 +120,15 @@ func NewServer(config *Config, dbManager *database.DatabaseManager) *Server {
 	paymentService := paymentservice.NewPaymentService(
 		dbManager.Payments(),
 		dbManager.Orders(),
+		dbManager.OrderLines(),
 		dbManager.Tickets(),
 		dbManager.InventoryHolds(),
+		dbManager.Events(),
 		momoProvider,
 		*paystackProvider,
 		dbManager.UnitOfWork(),
 		emailService,
+		config.JWTSecret,
 	)
 	
 	scannerAuthService := scanner.NewScannerAuthService(
@@ -307,6 +311,7 @@ func (s *Server) setupRoutes() {
 			orders.POST("", s.handleCreateOrder)
 			orders.GET("/:id", s.handleGetOrder)
 			orders.POST("/:id/cancel", s.handleCancelOrder)
+			orders.GET("/:id/tickets", s.handleGetOrderTickets)
 		}
 		
 		// Payment routes
@@ -384,6 +389,7 @@ func (s *Server) setupRoutes() {
 				adminProtected.GET("/orders/:id", s.adminHandler.GetOrder)
 				adminProtected.PUT("/orders/:id", s.adminHandler.UpdateOrder)
 				adminProtected.DELETE("/orders/:id", s.adminHandler.DeleteOrder)
+				adminProtected.POST("/orders/:id/confirm-payment", s.handleAdminConfirmPayment)
 				
 				// Ticket management
 				adminProtected.GET("/tickets", s.adminHandler.GetTickets)
@@ -779,11 +785,34 @@ func (s *Server) handleUpdateProfile(c *gin.Context) {
 }
 
 func (s *Server) handleGetUserOrders(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
+	s.orderHandler.GetUserOrders(c)
 }
 
 func (s *Server) handleGetUserTickets(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userIDStr, ok := userIDVal.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
+		return
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+	tickets, _, err := s.dbManager.Tickets().GetByUser(c.Request.Context(), userID, repositories.TicketFilter{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tickets"})
+		return
+	}
+	if tickets == nil {
+		tickets = []*entities.Ticket{}
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"items": tickets, "total": len(tickets)}})
 }
 
 func (s *Server) handleCreateOrder(c *gin.Context) {
@@ -800,11 +829,42 @@ func (s *Server) handleCancelOrder(c *gin.Context) {
 }
 
 func (s *Server) handleInitiatePayment(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
+	var req paymentservice.InitiatePaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	resp, err := s.paymentService.InitiatePayment(c.Request.Context(), &req)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if isNotFoundError(err) {
+			statusCode = http.StatusNotFound
+		} else if isValidationError(err) {
+			statusCode = http.StatusBadRequest
+		}
+		c.JSON(statusCode, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": resp})
 }
 
 func (s *Server) handleVerifyPayment(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
+	paymentIDStr := c.Param("id")
+	paymentID, err := uuid.Parse(paymentIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment ID"})
+		return
+	}
+	resp, err := s.paymentService.VerifyPayment(c.Request.Context(), &paymentservice.VerifyPaymentRequest{PaymentID: paymentID})
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if isNotFoundError(err) {
+			statusCode = http.StatusNotFound
+		}
+		c.JSON(statusCode, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": resp})
 }
 
 func (s *Server) handleMomoWebhook(c *gin.Context) {
@@ -812,7 +872,94 @@ func (s *Server) handleMomoWebhook(c *gin.Context) {
 }
 
 func (s *Server) handlePaystackWebhook(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented yet"})
+	var payload map[string]interface{}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
+		return
+	}
+	event, _ := payload["event"].(string)
+	req := &paymentservice.WebhookRequest{
+		Provider: entities.PaymentMethodPaystack,
+		Event:    event,
+		Data:     payload,
+	}
+	_, err := s.paymentService.HandleWebhook(c.Request.Context(), req)
+	if err != nil {
+		// Always return 200 to Paystack to prevent retries
+		c.JSON(http.StatusOK, gin.H{"status": "error", "message": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *Server) handleAdminConfirmPayment(c *gin.Context) {
+	orderIDStr := c.Param("id")
+	orderID, err := uuid.Parse(orderIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+		return
+	}
+	var body struct {
+		PaymentReference string  `json:"payment_reference"`
+		Amount           float64 `json:"amount"`
+	}
+	c.ShouldBindJSON(&body)
+	resp, err := s.paymentService.ConfirmPaymentManually(c.Request.Context(), &paymentservice.ConfirmPaymentManuallyRequest{
+		OrderID:          orderID,
+		PaymentReference: body.PaymentReference,
+		Amount:           body.Amount,
+	})
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if isNotFoundError(err) {
+			statusCode = http.StatusNotFound
+		} else if isValidationError(err) {
+			statusCode = http.StatusBadRequest
+		}
+		c.JSON(statusCode, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": resp})
+}
+
+func (s *Server) handleGetOrderTickets(c *gin.Context) {
+	orderIDStr := c.Param("id")
+	orderID, err := uuid.Parse(orderIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid order ID"})
+		return
+	}
+	// Verify the order belongs to the authenticated user
+	userIDVal, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userIDStr, ok := userIDVal.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID format"})
+		return
+	}
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+	order, _, err := s.orderService.GetOrderWithLines(c.Request.Context(), orderID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+		return
+	}
+	if order.UserID == nil || *order.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+	tickets, err := s.dbManager.Tickets().GetByOrder(c.Request.Context(), orderID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tickets"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"items": tickets, "total": len(tickets)}})
 }
 
 func (s *Server) Start() error {
@@ -842,4 +989,32 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// isNotFoundError checks if an error is a not-found error
+func isNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	type notFoundErr interface {
+		IsNotFound() bool
+	}
+	if nfe, ok := err.(notFoundErr); ok {
+		return nfe.IsNotFound()
+	}
+	return false
+}
+
+// isValidationError checks if an error is a validation error
+func isValidationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	type validationErr interface {
+		IsValidation() bool
+	}
+	if ve, ok := err.(validationErr); ok {
+		return ve.IsValidation()
+	}
+	return false
 }

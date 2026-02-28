@@ -120,7 +120,7 @@ export default function Dashboard() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-2xl font-bold text-foreground">{stats.total_scanned}</p>
+                    <p className="text-2xl font-bold text-foreground">{(stats as any).total_scans ?? (stats as any).scans_count ?? 0}</p>
                     <p className="text-sm text-muted-foreground">Tickets Scanned</p>
                   </div>
                   <Scan className="h-8 w-8 text-primary/50" />
@@ -132,7 +132,7 @@ export default function Dashboard() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-2xl font-bold text-green-600">{stats.valid_tickets}</p>
+                    <p className="text-2xl font-bold text-green-600">{(stats as any).valid_scans ?? 0}</p>
                     <p className="text-sm text-muted-foreground">Valid Tickets</p>
                   </div>
                   <CheckCircle className="h-8 w-8 text-green-600/50" />
@@ -144,7 +144,7 @@ export default function Dashboard() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-2xl font-bold text-red-600">{stats.invalid_tickets}</p>
+                    <p className="text-2xl font-bold text-red-600">{(stats as any).invalid_scans ?? 0}</p>
                     <p className="text-sm text-muted-foreground">Invalid Tickets</p>
                   </div>
                   <XCircle className="h-8 w-8 text-red-600/50" />
