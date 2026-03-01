@@ -82,10 +82,10 @@ const AdminScannerUserManagementPage: React.FC = () => {
   const getRoleBadge = (role: string): JSX.Element => {
     const roleConfig: Record<string, { color: string; label: string; icon: React.ComponentType<any> }> = {
       scanner: { color: 'bg-blue-100 text-blue-800', label: 'Scanner', icon: Scan },
-      supervisor: { color: 'bg-purple-100 text-purple-800', label: 'Supervisor', icon: Shield },
+      supervisor: { color: '" style={{ background: "rgba(245,158,11,0.1)" }} text-purple-800', label: 'Supervisor', icon: Shield },
       admin: { color: 'bg-red-100 text-red-800', label: 'Admin', icon: Settings }
     };
-    const config = roleConfig[role] || { color: 'bg-gray-100 text-gray-800', label: role, icon: User };
+    const config = roleConfig[role] || { color: 'bg-opacity-0" style={{ background: "var(--brand-surface)" }} font-semibold', label: role, icon: User };
     const Icon = config.icon;
     return (
       <Badge className={`${config.color} flex items-center gap-1`}>

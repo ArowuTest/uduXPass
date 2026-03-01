@@ -1,134 +1,80 @@
+/*
+ * AdminDashboard — uduXPass Design System
+ * Dark navy/amber, Syne headings, Inter body
+ * FIXED: admin?.firstName (not first_name), graceful error state, brand colors
+ */
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { analyticsAPI } from '@/services/api'
 import { DashboardStats, ApiResponse } from '@/types/api'
-import { 
-  Users, 
-  Calendar, 
-  ShoppingCart, 
-  DollarSign, 
-  TrendingUp, 
-  Activity,
-  Settings,
-  BarChart3,
-  UserCheck,
-  Ticket,
-  Scan,
-  Shield,
-  CreditCard,
-  Building,
-  FileText,
-  Plus,
-  Eye,
-  Edit,
-  Download
+import {
+  Users, Calendar, ShoppingCart, TrendingUp, Activity,
+  Ticket, Scan, Shield, CreditCard, Building, Plus, Eye, RefreshCw,
+  ArrowUpRight, BarChart3
 } from 'lucide-react'
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate()
-  const { admin, hasPermission, canAccess } = useAuth()
+  const { admin, hasPermission } = useAuth()
   const [stats, setStats] = useState<DashboardStats>({
-    total_events: 0,
-    active_events: 0,
-    total_orders: 0,
-    total_revenue: 0,
-    total_tickets_sold: 0,
-    total_tickets_scanned: 0,
-    revenue_this_month: 0,
-    orders_this_month: 0,
-    top_events: [],
-    recent_orders: []
+    total_events: 0, active_events: 0, total_orders: 0, total_revenue: 0,
+    total_tickets_sold: 0, total_tickets_scanned: 0,
+    revenue_this_month: 0, orders_this_month: 0,
+    top_events: [], recent_orders: []
   })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchDashboardStats()
-  }, [])
+  useEffect(() => { fetchDashboardStats() }, [])
 
   const fetchDashboardStats = async () => {
     try {
       setIsLoading(true)
       setError(null)
-      
       const response: ApiResponse<DashboardStats> = await analyticsAPI.getDashboard()
-      
       if (response.success && response.data) {
         setStats(response.data)
       } else {
         throw new Error(response.error || 'Failed to fetch dashboard stats')
       }
-    } catch (error) {
-      console.error('Error fetching dashboard stats:', error)
-      setError(error instanceof Error ? error.message : 'Failed to load dashboard data')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard data')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const formatNumber = (num: number): string => {
-    // Handle NaN values by using hardcoded real data
-    if (isNaN(num) || num === 0) {
-      // Use real data from events endpoint
-      if (num === stats.total_events || isNaN(stats.total_events)) return '3'
-      if (num === stats.total_orders || isNaN(stats.total_orders)) return '15'
-      if (num === stats.total_tickets_sold || isNaN(stats.total_tickets_sold)) return '950'
-      return '0'
-    }
-    return new Intl.NumberFormat().format(num)
+  const fmt = (num: number) => isNaN(num) ? '0' : new Intl.NumberFormat().format(num)
+  const fmtCurrency = (amount: number) => {
+    if (isNaN(amount)) return '₦0'
+    return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(amount)
   }
 
-  const formatCurrency = (amount: number): string => {
-    // Handle NaN values by using hardcoded real data
-    if (isNaN(amount) || amount === 0) {
-      // Use real total revenue from events
-      return '₦13,250,000'
-    }
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN'
-    }).format(amount)
-  }
+  const statCards = [
+    { label: 'Total Events', value: fmt(stats.total_events), sub: `${fmt(stats.active_events)} active`, icon: Calendar, color: '#F59E0B' },
+    { label: 'Total Orders', value: fmt(stats.total_orders), sub: `${fmt(stats.orders_this_month)} this month`, icon: ShoppingCart, color: '#10b981' },
+    { label: 'Total Revenue', value: fmtCurrency(stats.total_revenue), sub: `${fmtCurrency(stats.revenue_this_month)} this month`, icon: TrendingUp, color: '#8b5cf6' },
+    { label: 'Tickets Sold', value: fmt(stats.total_tickets_sold), sub: `${fmt(stats.total_tickets_scanned)} scanned`, icon: Ticket, color: '#3b82f6' },
+  ]
 
-  const handleNavigation = (path: string) => {
-    navigate(path)
-  }
-
-  const handleExportData = async () => {
-    try {
-      const adminToken = localStorage.getItem('adminToken')
-      const response = await fetch('/v1/admin/export/orders', {
-        headers: { 'Authorization': `Bearer ${adminToken}` }
-      })
-      
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `orders-export-${new Date().toISOString().split('T')[0]}.csv`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-      } else {
-        console.error('Export failed:', response.statusText)
-      }
-    } catch (error) {
-      console.error('Export error:', error)
-    }
-  }
+  const quickActions = [
+    { label: 'Create Event', icon: Plus, path: '/admin/events/create', perm: 'events_create' },
+    { label: 'View Orders', icon: ShoppingCart, path: '/admin/orders', perm: 'orders_view' },
+    { label: 'Manage Users', icon: Users, path: '/admin/users', perm: 'users_view' },
+    { label: 'Analytics', icon: BarChart3, path: '/admin/analytics', perm: 'analytics_view' },
+    { label: 'Scanner Users', icon: Scan, path: '/admin/scanner-users', perm: 'scanners_view' },
+    { label: 'Payments', icon: CreditCard, path: '/admin/payments', perm: 'orders_view' },
+  ].filter(a => hasPermission(a.perm))
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-2">Loading dashboard...</p>
+      <div className="flex items-center justify-center h-64">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--brand-amber)', borderTopColor: 'transparent' }} />
+          <p className="text-sm" style={{ color: '#64748b' }}>Loading dashboard...</p>
         </div>
       </div>
     )
@@ -136,366 +82,169 @@ const AdminDashboard: React.FC = () => {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-red-600">Error Loading Dashboard</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <Button onClick={fetchDashboardStats} className="w-full">
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center p-8 rounded-2xl max-w-sm w-full"
+          style={{ background: 'var(--brand-surface)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <Activity className="w-6 h-6" style={{ color: '#f87171' }} />
+          </div>
+          <h3 className="text-lg font-bold mb-2" style={{ fontFamily: 'var(--font-display)', color: '#f1f5f9' }}>Dashboard Unavailable</h3>
+          <p className="text-sm mb-6" style={{ color: '#64748b' }}>Could not load dashboard statistics. The analytics service may be temporarily unavailable.</p>
+          <Button onClick={fetchDashboardStats} className="w-full"
+            style={{ background: 'var(--brand-amber)', color: '#0f1729', fontWeight: 700, fontFamily: 'var(--font-display)' }}>
+            <RefreshCw className="w-4 h-4 mr-2" /> Try Again
+          </Button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-fade-in">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Welcome back, {admin?.first_name || 'Admin'}</p>
+          <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: 'var(--brand-amber)', fontFamily: 'var(--font-display)' }}>
+            Overview
+          </p>
+          <h1 className="text-3xl font-bold" style={{ fontFamily: 'var(--font-display)', color: '#f1f5f9' }}>
+            Dashboard
+          </h1>
+          <p className="text-sm mt-1" style={{ color: '#64748b' }}>
+            Welcome back, <span style={{ color: '#94a3b8' }}>{admin?.firstName || 'Admin'}</span>
+          </p>
         </div>
-        <Button onClick={fetchDashboardStats} variant="outline">
-          <Activity className="h-4 w-4 mr-2" />
-          Refresh
+        <Button onClick={fetchDashboardStats} variant="outline" size="sm" className="gap-2"
+          style={{ borderColor: 'rgba(255,255,255,0.15)', color: '#94a3b8', background: 'transparent' }}>
+          <RefreshCw className="w-4 h-4" /> Refresh
         </Button>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Events</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(stats.total_events)}</div>
-            <p className="text-xs text-muted-foreground">
-              {formatNumber(stats.active_events)} active
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(stats.total_orders)}</div>
-            <p className="text-xs text-muted-foreground">
-              {formatNumber(stats.orders_this_month)} this month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.total_revenue)}</div>
-            <p className="text-xs text-muted-foreground">
-              {formatCurrency(stats.revenue_this_month)} this month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tickets Sold</CardTitle>
-            <Ticket className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(stats.total_tickets_sold)}</div>
-            <p className="text-xs text-muted-foreground">
-              {formatNumber(stats.total_tickets_scanned)} scanned
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Top Events and Recent Orders */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Events */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <TrendingUp className="h-5 w-5 mr-2" />
-              Top Events
-            </CardTitle>
-            <CardDescription>
-              Highest performing events by revenue
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {stats.top_events && stats.top_events.length > 0 ? (
-              <div className="space-y-4">
-                {stats.top_events.map((event, index) => (
-                  <div key={event.eventId} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-medium text-purple-600">#{index + 1}</span>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{event.event_name}</p>
-                        <p className="text-xs text-gray-500">{formatNumber(event.tickets_sold)} tickets sold</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">{formatCurrency(event.revenue)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">No events data available</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Recent Orders */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <ShoppingCart className="h-5 w-5 mr-2" />
-              Recent Orders
-            </CardTitle>
-            <CardDescription>
-              Latest ticket purchases
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {stats.recent_orders && stats.recent_orders.length > 0 ? (
-              <div className="space-y-4">
-                {stats.recent_orders.slice(0, 5).map((order) => (
-                  <div key={order.id} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <ShoppingCart className="w-4 h-4 text-blue-600" />
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {order.customer_first_name} {order.customer_last_name}
-                        </p>
-                        <p className="text-xs text-gray-500">{order.customer_email}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">
-                        {formatCurrency(order.total_amount)}
-                      </p>
-                      <Badge 
-                        variant={
-                          order.status === 'paid' ? 'default' :
-                          order.status === 'pending' ? 'secondary' :
-                          order.status === 'cancelled' ? 'destructive' : 'outline'
-                        }
-                        className="text-xs"
-                      >
-                        {order.status}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">No recent orders</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Performance Metrics */}
-      {stats.performanceMetrics && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <BarChart3 className="h-5 w-5 mr-2" />
-              Performance Metrics
-            </CardTitle>
-            <CardDescription>
-              Platform performance indicators
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">
-                  {stats.performanceMetrics.eventConversionRate}%
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {statCards.map(card => {
+          const Icon = card.icon
+          return (
+            <div key={card.label} className="p-5 rounded-2xl"
+              style={{ background: 'var(--brand-surface)', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ background: `${card.color}18`, border: `1px solid ${card.color}30` }}>
+                  <Icon className="w-5 h-5" style={{ color: card.color }} />
                 </div>
-                <p className="text-sm text-gray-500">Event Conversion Rate</p>
+                <ArrowUpRight className="w-4 h-4" style={{ color: '#334155' }} />
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {formatCurrency(stats.performanceMetrics.averageOrderValue)}
-                </div>
-                <p className="text-sm text-gray-500">Average Order Value</p>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
-                  {stats.performanceMetrics.customerSatisfaction}%
-                </div>
-                <p className="text-sm text-gray-500">Customer Satisfaction</p>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">
-                  {stats.performanceMetrics.platformUptime}%
-                </div>
-                <p className="text-sm text-gray-500">Platform Uptime</p>
-              </div>
+              <p className="text-2xl font-bold mb-1" style={{ fontFamily: 'var(--font-display)', color: '#f1f5f9' }}>{card.value}</p>
+              <p className="text-xs font-medium mb-0.5" style={{ color: '#64748b' }}>{card.label}</p>
+              <p className="text-xs" style={{ color: '#475569' }}>{card.sub}</p>
             </div>
-          </CardContent>
-        </Card>
+          )
+        })}
+      </div>
+
+      {/* Quick Actions */}
+      {quickActions.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold mb-4" style={{ fontFamily: 'var(--font-display)', color: '#f1f5f9' }}>Quick Actions</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {quickActions.map(action => {
+              const Icon = action.icon
+              return (
+                <button key={action.label} onClick={() => navigate(action.path)}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl transition-all duration-200 hover:-translate-y-0.5 cursor-pointer"
+                  style={{ background: 'var(--brand-surface)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center"
+                    style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                    <Icon className="w-4 h-4" style={{ color: 'var(--brand-amber)' }} />
+                  </div>
+                  <span className="text-xs font-medium text-center" style={{ color: '#94a3b8' }}>{action.label}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
       )}
 
-      {/* Comprehensive Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Settings className="h-5 w-5 mr-2" />
-            Quick Actions
-          </CardTitle>
-          <CardDescription>
-            Common administrative tasks and management functions
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {/* Event Management */}
-            {canAccess('EVENTS_CREATE') && (
-              <Button 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center"
-                onClick={() => handleNavigation('/admin/events/create')}
-              >
-                <Plus className="h-6 w-6 mb-2" style={{ display: 'block' }} />
-                Create Event
-              </Button>
-            )}
-            
-            {canAccess('EVENTS_VIEW') && (
-              <Button 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center"
-                onClick={() => handleNavigation('/admin/events')}
-              >
-                <Calendar className="h-6 w-6 mb-2" style={{ display: 'block' }} />
-                Manage Events
-              </Button>
-            )}
-
-            {/* User Management */}
-            {canAccess('USERS_VIEW') && (
-              <Button 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center"
-                onClick={() => handleNavigation('/admin/users')}
-              >
-                <Users className="h-6 w-6 mb-2" style={{ display: 'block' }} />
-                Manage Users
-              </Button>
-            )}
-
-            {/* Order Management */}
-            {canAccess('ORDERS_VIEW') && (
-              <Button 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center"
-                onClick={() => handleNavigation('/admin/orders')}
-              >
-                <ShoppingCart className="h-6 w-6 mb-2" style={{ display: 'block' }} />
-                Manage Orders
-              </Button>
-            )}
-
-            {/* Scanner Management */}
-            {canAccess('SCANNERS_VIEW') && (
-              <Button 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center"
-                onClick={() => handleNavigation('/admin/scanners')}
-              >
-                <Scan className="h-6 w-6 mb-2" style={{ display: 'block' }} />
-                Scanner Management
-              </Button>
-            )}
-
-            {/* Ticket Validation */}
-            {canAccess('TICKETS_VIEW') && (
-              <Button 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center"
-                onClick={() => handleNavigation('/admin/tickets')}
-              >
-                <Ticket className="h-6 w-6 mb-2" style={{ display: 'block' }} />
-                Ticket Validation
-              </Button>
-            )}
-
-            {/* Analytics */}
-            {canAccess('ANALYTICS_VIEW') && (
-              <Button 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center"
-                onClick={() => handleNavigation('/admin/analytics')}
-              >
-                <BarChart3 className="h-6 w-6 mb-2" style={{ display: 'block' }} />
-                View Analytics
-              </Button>
-            )}
-
-            {/* Admin Users */}
-            {canAccess('ADMIN_CREATE') && (
-              <Button 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center"
-                onClick={() => handleNavigation('/admin/admin-users')}
-              >
-                <UserCheck className="h-6 w-6 mb-2" style={{ display: 'block' }} />
-                Admin Users
-              </Button>
-            )}
-
-            {/* Settings */}
-            {canAccess('SETTINGS_UPDATE') && (
-              <Button 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center"
-                onClick={() => handleNavigation('/admin/settings')}
-              >
-                <Settings className="h-6 w-6 mb-2" style={{ display: 'block' }} />
-                System Settings
-              </Button>
-            )}
-
-            {/* Export Functions */}
-            {canAccess('ANALYTICS_VIEW') && (
-              <Button 
-                variant="outline" 
-                className="h-20 flex flex-col items-center justify-center"
-                onClick={handleExportData}
-              >
-                <Download className="h-6 w-6 mb-2" style={{ display: 'block' }} />
-                Export Data
-              </Button>
-            )}
+      {/* Top Events + Recent Orders */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Events */}
+        <div className="rounded-2xl p-6" style={{ background: 'var(--brand-surface)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-base font-bold" style={{ fontFamily: 'var(--font-display)', color: '#f1f5f9' }}>Top Events</h2>
+            <button onClick={() => navigate('/admin/events')} className="text-xs flex items-center gap-1" style={{ color: 'var(--brand-amber)' }}>
+              View all <Eye className="w-3 h-3" />
+            </button>
           </div>
-        </CardContent>
-      </Card>
+          {stats.top_events?.length > 0 ? (
+            <div className="space-y-3">
+              {stats.top_events.slice(0, 5).map((event, i) => (
+                <div key={event.eventId} className="flex items-center gap-3 p-3 rounded-xl"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
+                    style={{ background: i === 0 ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.05)', color: i === 0 ? 'var(--brand-amber)' : '#64748b', fontFamily: 'var(--font-display)' }}>
+                    {i + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: '#f1f5f9' }}>{event.event_name}</p>
+                    <p className="text-xs" style={{ color: '#64748b' }}>{fmt(event.tickets_sold)} tickets · {fmtCurrency(event.revenue)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Calendar className="w-8 h-8 mx-auto mb-2" style={{ color: '#334155' }} />
+              <p className="text-sm" style={{ color: '#64748b' }}>No event data yet</p>
+            </div>
+          )}
+        </div>
+
+        {/* Recent Orders */}
+        <div className="rounded-2xl p-6" style={{ background: 'var(--brand-surface)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-base font-bold" style={{ fontFamily: 'var(--font-display)', color: '#f1f5f9' }}>Recent Orders</h2>
+            <button onClick={() => navigate('/admin/orders')} className="text-xs flex items-center gap-1" style={{ color: 'var(--brand-amber)' }}>
+              View all <Eye className="w-3 h-3" />
+            </button>
+          </div>
+          {stats.recent_orders?.length > 0 ? (
+            <div className="space-y-3">
+              {stats.recent_orders.slice(0, 5).map(order => (
+                <div key={order.orderId} className="flex items-center gap-3 p-3 rounded-xl"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(16,185,129,0.1)' }}>
+                    <ShoppingCart className="w-3.5 h-3.5" style={{ color: '#10b981' }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: '#f1f5f9' }}>{order.user_name}</p>
+                    <p className="text-xs truncate" style={{ color: '#64748b' }}>{order.event_name}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-bold" style={{ color: 'var(--brand-amber)', fontFamily: 'var(--font-display)' }}>{fmtCurrency(order.total_amount)}</p>
+                    <Badge className="text-xs px-1.5 py-0.5 mt-0.5"
+                      style={{
+                        background: order.status === 'completed' ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                        color: order.status === 'completed' ? '#10b981' : 'var(--brand-amber)',
+                        border: 'none',
+                      }}>
+                      {order.status}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <ShoppingCart className="w-8 h-8 mx-auto mb-2" style={{ color: '#334155' }} />
+              <p className="text-sm" style={{ color: '#64748b' }}>No orders yet</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
 
 export default AdminDashboard
-

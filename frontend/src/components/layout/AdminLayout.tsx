@@ -1,28 +1,16 @@
+/*
+ * AdminLayout — uduXPass Design System
+ * Dark navy sidebar, amber accents, Syne font
+ * FIXED: Permission keys now match AuthContext (plural: events_view, orders_view, etc.)
+ */
 import { useState, ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { 
-  Menu, 
-  X, 
-  Home, 
-  Calendar, 
-  Users, 
-  ShoppingCart, 
-  BarChart3, 
-  Settings, 
-  LogOut,
-  Shield,
-  UserCheck,
-  Ticket,
-  Building,
-  CreditCard,
-  Bell,
-  HelpCircle,
-  Scan,
-  LucideIcon
+import {
+  Menu, Home, Calendar, Users, ShoppingCart, BarChart3, Settings, LogOut,
+  Shield, UserCheck, Ticket, Building, CreditCard, Scan, ChevronLeft, LucideIcon
 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 
 interface NavigationItem {
   title: string
@@ -31,239 +19,137 @@ interface NavigationItem {
   permission: string | null
   roles?: string[]
 }
-
-interface AdminLayoutProps {
-  children: ReactNode
-}
+interface AdminLayoutProps { children: ReactNode }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const { admin, logout, hasPermission, canAccess } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
 
-  const handleLogout = (): void => {
-    logout()
-    navigate('/admin/login')
-  }
+  const handleLogout = () => { logout(); navigate('/admin/login') }
+  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/')
 
-  const isActivePath = (path: string): boolean => {
-    return location.pathname === path || location.pathname.startsWith(path + '/')
-  }
-
-  const getRoleColor = (role: string): string => {
-    switch (role) {
-      case 'super_admin': return 'bg-red-100 text-red-800'
-      case 'event_manager': return 'bg-blue-100 text-blue-800'
-      case 'support_agent': return 'bg-green-100 text-green-800'
-      case 'analyst': return 'bg-purple-100 text-purple-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
+  // FIXED: Permission keys match AuthContext (plural underscore format)
   const navigationItems: NavigationItem[] = [
-    {
-      title: 'Dashboard',
-      path: '/admin/dashboard',
-      icon: Home,
-      permission: null // Always accessible to admins
-    },
-    {
-      title: 'Events',
-      path: '/admin/events',
-      icon: Calendar,
-      permission: 'event_view'
-    },
-    {
-      title: 'Orders',
-      path: '/admin/orders',
-      icon: ShoppingCart,
-      permission: 'order_view'
-    },
-    {
-      title: 'Users',
-      path: '/admin/users',
-      icon: Users,
-      permission: 'user_view'
-    },
-    {
-      title: 'Organizers',
-      path: '/admin/organizers',
-      icon: Building,
-      permission: 'organizer_view'
-    },
-    {
-      title: 'Tickets',
-      path: '/admin/tickets',
-      icon: Ticket,
-      permission: 'ticket_view'
-    },
-    {
-      title: 'Payments',
-      path: '/admin/payments',
-      icon: CreditCard,
-      permission: 'payment_view'
-    },
-    {
-      title: 'Analytics',
-      path: '/admin/analytics',
-      icon: BarChart3,
-      permission: 'analytics_view'
-    },
-    {
-      title: 'Admin Users',
-      path: '/admin/admin-users',
-      icon: UserCheck,
-      permission: 'admin_create',
-      roles: ['super_admin']
-    },
-    {
-      title: 'Scanner Users',
-      path: '/admin/scanner-users',
-      icon: Scan,
-      permission: 'scanner_manage',
-      roles: ['super_admin', 'event_manager']
-    },
-    {
-      title: 'Settings',
-      path: '/admin/settings',
-      icon: Settings,
-      permission: 'system_settings',
-      roles: ['super_admin']
-    }
+    { title: 'Dashboard',     path: '/admin/dashboard',     icon: Home,         permission: null },
+    { title: 'Events',        path: '/admin/events',        icon: Calendar,     permission: 'events_view' },
+    { title: 'Orders',        path: '/admin/orders',        icon: ShoppingCart, permission: 'orders_view' },
+    { title: 'Users',         path: '/admin/users',         icon: Users,        permission: 'users_view' },
+    { title: 'Organizers',    path: '/admin/organizers',    icon: Building,     permission: 'users_view' },
+    { title: 'Tickets',       path: '/admin/tickets',       icon: Ticket,       permission: 'tickets_view' },
+    { title: 'Payments',      path: '/admin/payments',      icon: CreditCard,   permission: 'orders_view' },
+    { title: 'Analytics',     path: '/admin/analytics',     icon: BarChart3,    permission: 'analytics_view' },
+    { title: 'Admin Users',   path: '/admin/admin-users',   icon: UserCheck,    permission: 'admin_create',    roles: ['super_admin'] },
+    { title: 'Scanner Users', path: '/admin/scanner-users', icon: Scan,         permission: 'scanners_view',   roles: ['super_admin', 'event_manager'] },
+    { title: 'Settings',      path: '/admin/settings',      icon: Settings,     permission: 'settings_update', roles: ['super_admin'] },
   ]
 
   const filteredNavigation = navigationItems.filter(item => {
-    if (!item.permission) return true // Always show items without permission requirements
-    
-    if (item.roles && item.roles.length > 0) {
-      return canAccess([item.permission], item.roles)
-    }
-    
+    if (!item.permission) return true
+    if (item.roles?.length) return canAccess([item.permission], item.roles)
     return hasPermission(item.permission)
   })
 
+  const roleLabel = (role: string) => role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--brand-navy)' }}>
       {/* Sidebar */}
-      <div className={`${isSidebarOpen ? 'w-64' : 'w-16'} bg-white border-r border-gray-200 transition-all duration-300 flex flex-col`}>
-        {/* Header */}
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            {isSidebarOpen && (
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-white" />
+      <aside
+        className="flex flex-col transition-all duration-300 flex-shrink-0"
+        style={{ width: isSidebarOpen ? '240px' : '64px', background: 'var(--brand-surface)', borderRight: '1px solid rgba(255,255,255,0.07)' }}
+      >
+        {/* Logo */}
+        <div className="flex items-center justify-between px-4 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', minHeight: '64px' }}>
+          {isSidebarOpen ? (
+            <>
+              <Link to="/admin/dashboard" className="flex items-center gap-2" style={{ textDecoration: 'none' }}>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--brand-amber)' }}>
+                  <Shield className="w-4 h-4" style={{ color: '#0f1729' }} />
                 </div>
-                <span className="text-lg font-bold text-gray-900">Admin Portal</span>
-              </div>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-1"
-            >
-              {isSidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-            </Button>
-          </div>
+                <span className="text-base font-bold" style={{ fontFamily: 'var(--font-display)', color: '#f1f5f9' }}>
+                  uduX<span style={{ color: 'var(--brand-amber)' }}>Admin</span>
+                </span>
+              </Link>
+              <button onClick={() => setIsSidebarOpen(false)} className="p-1 rounded" style={{ color: '#64748b' }}>
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setIsSidebarOpen(true)} className="w-7 h-7 rounded-lg flex items-center justify-center mx-auto" style={{ background: 'var(--brand-amber)' }}>
+              <Shield className="w-4 h-4" style={{ color: '#0f1729' }} />
+            </button>
+          )}
         </div>
 
-        {/* Admin Info */}
-        {isSidebarOpen && (
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-medium">
-                  {admin?.firstName?.[0]}{admin?.lastName?.[0]}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {admin?.firstName} {admin?.lastName}
-                </p>
-                <p className="text-xs text-gray-500 truncate">{admin?.email}</p>
-              </div>
-            </div>
-            <div className="mt-2">
-              <Badge className={`text-xs ${getRoleColor(admin?.role || '')}`}>
-                {admin?.role?.replace('_', ' ').toUpperCase()}
-              </Badge>
-            </div>
-          </div>
-        )}
-
-        {/* Navigation */}
-        <nav className="flex-1 p-4">
-          <ul className="space-y-2">
-            {filteredNavigation.map((item) => {
-              const Icon = item.icon
-              const isActive = isActivePath(item.path)
-              
-              return (
-                <li key={item.path}>
-                  <Link
-                    to={item.path}
-                    className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-purple-100 text-purple-700'
-                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
-                    {isSidebarOpen && <span>{item.title}</span>}
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto py-4 px-2">
+          {filteredNavigation.map(item => {
+            const Icon = item.icon
+            const active = isActive(item.path)
+            return (
+              <Link key={item.path} to={item.path} style={{ textDecoration: 'none' }}>
+                <div
+                  className="flex items-center gap-3 px-3 py-2.5 mb-0.5 rounded-lg transition-all duration-150 cursor-pointer"
+                  style={{ color: active ? 'var(--brand-amber)' : '#94a3b8', background: active ? 'rgba(245,158,11,0.12)' : 'transparent' }}
+                  title={!isSidebarOpen ? item.title : undefined}
+                >
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  {isSidebarOpen && <span className="text-sm font-medium">{item.title}</span>}
+                  {isSidebarOpen && active && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: 'var(--brand-amber)' }} />}
+                </div>
+              </Link>
+            )
+          })}
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200">
-          <div className="space-y-2">
-            <Link
-              to="/"
-              className="flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-            >
-              <HelpCircle className="w-5 h-5 flex-shrink-0" />
-              {isSidebarOpen && <span>View Site</span>}
-            </Link>
-            <Button
-              variant="ghost"
-              className="w-full justify-start px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-              onClick={handleLogout}
-            >
-              <LogOut className="w-5 h-5 flex-shrink-0 mr-3" />
-              {isSidebarOpen && <span>Logout</span>}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Bar */}
-        <header className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                uduXPass Administration
-              </h2>
+        <div className="p-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          {isSidebarOpen && (
+            <div className="flex items-center gap-3 mb-3 px-2">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                style={{ background: 'var(--brand-amber)', color: '#0f1729' }}>
+                {admin?.firstName?.[0]?.toUpperCase() || 'A'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: '#f1f5f9', fontFamily: 'var(--font-display)' }}>
+                  {admin?.firstName} {admin?.lastName}
+                </p>
+                <p className="text-xs truncate" style={{ color: '#64748b' }}>{admin?.role ? roleLabel(admin.role) : 'Admin'}</p>
+              </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm">
-                <Bell className="w-4 h-4" />
-              </Button>
-              <Badge variant="outline" className="text-xs">
-                {admin?.permissions?.includes('*' as any) ? 'All Permissions' : `${admin?.permissions?.length || 0} Permissions`}
-              </Badge>
+          )}
+          <button onClick={handleLogout} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style={{ color: '#64748b' }} title="Sign Out">
+            <LogOut className="w-4 h-4 flex-shrink-0" />
+            {isSidebarOpen && <span>Sign Out</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <header className="flex items-center gap-4 px-6 h-16 flex-shrink-0"
+          style={{ background: 'var(--brand-surface)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          {!isSidebarOpen && (
+            <button onClick={() => setIsSidebarOpen(true)} className="p-1.5 rounded-lg" style={{ color: '#94a3b8' }}>
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
+          <div className="flex-1" />
+          <div className="flex items-center gap-3">
+            <Badge className="text-xs px-2 py-1 font-semibold"
+              style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--brand-amber)', border: '1px solid rgba(245,158,11,0.3)', fontFamily: 'var(--font-display)' }}>
+              <Shield className="w-3 h-3 mr-1" />
+              {admin?.role ? roleLabel(admin.role) : 'Admin'}
+            </Badge>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+              style={{ background: 'var(--brand-amber)', color: '#0f1729' }}>
+              {admin?.firstName?.[0]?.toUpperCase() || 'A'}
             </div>
           </div>
         </header>
-
-        {/* Page Content */}
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6" style={{ background: 'var(--brand-navy)' }}>
           {children}
         </main>
       </div>
@@ -272,4 +158,3 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
 }
 
 export default AdminLayout
-
