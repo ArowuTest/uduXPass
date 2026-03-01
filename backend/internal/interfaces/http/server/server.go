@@ -17,6 +17,7 @@ import (
 	"github.com/uduxpass/backend/internal/infrastructure/database"
 	"github.com/uduxpass/backend/internal/infrastructure/email"
 	"github.com/uduxpass/backend/internal/infrastructure/payments"
+	"github.com/uduxpass/backend/internal/infrastructure/storage"
 	"github.com/uduxpass/backend/internal/interfaces/http/handlers"
 	"github.com/uduxpass/backend/internal/usecases/admin"
 	"github.com/uduxpass/backend/internal/usecases/auth"
@@ -59,6 +60,7 @@ type Server struct {
 	adminHandler   *handlers.AdminHandlerExtended
 	scannerHandler *handlers.ScannerHandler
 	orderHandler   *handlers.OrderHandler
+	uploadHandler  *handlers.UploadHandler
 }
 
 // NewServer creates a new HTTP server with proper dependency injection
@@ -159,6 +161,15 @@ func NewServer(config *Config, dbManager *database.DatabaseManager) *Server {
 		gin.SetMode(gin.DebugMode)
 	}
 	
+	// Initialize storage provider
+	// Set STORAGE_PROVIDER=gcs and configure GCS env vars to switch to GCP Cloud Storage in production.
+	uploadDir := getEnv("UPLOAD_DIR", "./uploads")
+	baseURL := getEnv("BASE_URL", fmt.Sprintf("http://localhost:%s", config.Port))
+	localStore, storeErr := storage.NewLocalStorage(uploadDir, baseURL+"/uploads")
+	if storeErr != nil {
+		panic(fmt.Sprintf("failed to initialize storage: %v", storeErr))
+	}
+
 	server := &Server{
 		config:             config,
 		router:             gin.New(),
@@ -175,6 +186,7 @@ func NewServer(config *Config, dbManager *database.DatabaseManager) *Server {
 		adminHandler:       adminHandler,
 		scannerHandler:     scannerHandler,
 		orderHandler:       handlers.NewOrderHandler(orderService, paymentService),
+		uploadHandler:      handlers.NewUploadHandler(localStore),
 	}
 	
 	server.setupMiddleware()
@@ -259,6 +271,9 @@ func (s *Server) setupMiddleware() {
 func (s *Server) setupRoutes() {
 	// Health check endpoint
 	s.router.GET("/health", s.handleHealth)
+
+	// Serve uploaded files as static assets
+	s.router.Static("/uploads", "./uploads")
 	
 	// API v1 routes
 	v1 := s.router.Group("/v1")
@@ -424,6 +439,12 @@ func (s *Server) setupRoutes() {
 				adminProtected.GET("/export/orders", s.adminHandler.ExportOrders)
 				adminProtected.GET("/export/events", s.adminHandler.ExportEvents)
 				adminProtected.GET("/export/tickets", s.adminHandler.ExportTickets)
+
+				// Media upload routes
+				// POST /v1/admin/upload  — upload a file, returns { url, filename, size, mime_type }
+				// DELETE /v1/admin/upload — delete a file by URL
+				adminProtected.POST("/upload", s.uploadHandler.UploadMedia)
+				adminProtected.DELETE("/upload", s.uploadHandler.DeleteMedia)
 			}
 		}
 	}

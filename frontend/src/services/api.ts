@@ -41,7 +41,7 @@ import {
 import { transformBackendEventToFrontend, transformFrontendEventToBackend } from './dataTransformers';
 
 // Production API configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/v1';
 console.log('[API Service] Base URL:', API_BASE_URL);
 
 // Helper function to get auth headers
@@ -226,7 +226,7 @@ export const authAPI = {
 // Admin Authentication API
 export const adminAuthAPI = {
   login: async (credentials: LoginCredentials): Promise<ApiResponse<AdminAuthResponse>> => {
-    return loginRequest<AdminAuthResponse>('/v1/admin/auth/login', {
+    return loginRequest<AdminAuthResponse>('/admin/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials)
     });
@@ -259,13 +259,15 @@ export const eventsAPI = {
     const response = await apiRequest<any>(endpoint);
     
     // Transform backend response to frontend format
-    if (response.success && response.data && response.data.events) {
-      response.data.events = response.data.events.map(transformBackendEventToFrontend);
-      // Rename 'events' to 'data' for PaginatedResponse format
-      response.data = {
-        data: response.data.events,
-        pagination: response.data.pagination
-      };
+    // apiRequest wraps: { success: true, data: backendBody }
+    // backendBody shape: { data: { events: [], pagination: {} }, success: true }
+    if (response.success && response.data) {
+      const body = response.data as any;
+      // Handle both nested (body.data.events) and flat (body.events) shapes
+      const eventsArray = body?.data?.events || body?.events || [];
+      const pagination = body?.data?.pagination || body?.pagination || null;
+      const transformed = eventsArray.map(transformBackendEventToFrontend);
+      response.data = { data: transformed, pagination } as any;
     }
     
     return response as ApiResponse<PaginatedResponse<Event>>;
@@ -314,7 +316,7 @@ export const eventsAPI = {
     // Transform frontend data to backend format
     const backendEventData = transformFrontendEventToBackend(eventData as any);
     
-    const response = await adminApiRequest<any>('/v1/admin/events', {
+    const response = await adminApiRequest<any>('/admin/events', {
       method: 'POST',
       body: JSON.stringify(backendEventData)
     });
@@ -358,7 +360,7 @@ export const eventsAPI = {
 // Orders API
 export const ordersAPI = {
   create: async (orderData: CreateOrderData): Promise<ApiResponse<Order>> => {
-    return apiRequest<Order>('/v1/orders', {
+    return apiRequest<Order>('/orders', {
       method: 'POST',
       body: JSON.stringify(orderData)
     });
@@ -369,7 +371,7 @@ export const ordersAPI = {
   },
 
   getUserOrders: async (): Promise<ApiResponse<Order[]>> => {
-    return apiRequest<Order[]>('/v1/orders/user');
+    return apiRequest<Order[]>('/orders/user');
   },
 
   getAll: async (params?: OrdersQueryParams): Promise<ApiResponse<Order[]>> => {
@@ -406,7 +408,7 @@ export const ordersAPI = {
 // Payments API
 export const paymentsAPI = {
   initiate: async (paymentData: InitiatePaymentData): Promise<ApiResponse<PaymentResponse>> => {
-    return apiRequest<PaymentResponse>('/v1/payments/initiate', {
+    return apiRequest<PaymentResponse>('/payments/initiate', {
       method: 'POST',
       body: JSON.stringify(paymentData)
     });
@@ -447,7 +449,7 @@ export const ticketsAPI = {
   },
 
   scanTicket: async (scanData: ScanTicketData): Promise<ApiResponse<ScanResult>> => {
-    return adminApiRequest<ScanResult>('/v1/admin/tickets/scan', {
+    return adminApiRequest<ScanResult>('/admin/tickets/scan', {
       method: 'POST',
       body: JSON.stringify(scanData)
     });
@@ -457,18 +459,18 @@ export const ticketsAPI = {
 // User API
 export const userAPI = {
   getProfile: async (): Promise<ApiResponse<UserProfile>> => {
-    return apiRequest<UserProfile>('/v1/user/profile');
+    return apiRequest<UserProfile>('/user/profile');
   },
 
   updateProfile: async (userData: UpdateProfileData): Promise<ApiResponse<UserProfile>> => {
-    return apiRequest<UserProfile>('/v1/user/profile', {
+    return apiRequest<UserProfile>('/user/profile', {
       method: 'PUT',
       body: JSON.stringify(userData)
     });
   },
 
   changePassword: async (passwordData: ChangePasswordData): Promise<ApiResponse<void>> => {
-    return apiRequest<void>('/v1/user/change-password', {
+    return apiRequest<void>('/user/change-password', {
       method: 'POST',
       body: JSON.stringify(passwordData)
     });
@@ -478,7 +480,7 @@ export const userAPI = {
 // FIXED: Analytics API with proper adminApiRequest
 export const analyticsAPI = {
   getDashboard: async (): Promise<ApiResponse<DashboardStats>> => {
-    return adminApiRequest<DashboardStats>('/v1/admin/analytics/dashboard');
+    return adminApiRequest<DashboardStats>('/admin/analytics/dashboard');
   },
 
   getEventAnalytics: async (eventId: string): Promise<ApiResponse<EventStats>> => {
@@ -521,7 +523,7 @@ export const analyticsAPI = {
   },
 
   getScannerStats: async (): Promise<ApiResponse<ScannerStats>> => {
-    return adminApiRequest<ScannerStats>('/v1/admin/analytics/scanners');
+    return adminApiRequest<ScannerStats>('/admin/analytics/scanners');
   }
 };
 
@@ -557,11 +559,11 @@ export const adminUsersAPI = {
 // Scanners API
 export const scannersAPI = {
   getAll: async (): Promise<ApiResponse<any[]>> => {
-    return adminApiRequest<any[]>('/v1/admin/scanners');
+    return adminApiRequest<any[]>('/admin/scanners');
   },
 
   create: async (scannerData: any): Promise<ApiResponse<any>> => {
-    return adminApiRequest<any>('/v1/admin/scanners', {
+    return adminApiRequest<any>('/admin/scanners', {
       method: 'POST',
       body: JSON.stringify(scannerData)
     });

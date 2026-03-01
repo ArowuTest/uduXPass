@@ -66,6 +66,9 @@ type CreateEventRequest struct {
 	VenueLatitude   *float64              `json:"venue_latitude,omitempty"`
 	VenueLongitude  *float64              `json:"venue_longitude,omitempty"`
 	EventImageURL   *string               `json:"event_image_url,omitempty"`
+	ThumbnailURL    *string               `json:"thumbnail_url,omitempty"`
+	PromoVideoURL   *string               `json:"promo_video_url,omitempty"`
+	GalleryImages   []string              `json:"gallery_images,omitempty"`
 	SaleStart       *time.Time            `json:"sale_start,omitempty"`
 	SaleEnd         *time.Time            `json:"sale_end,omitempty"`
 	TicketTiers     []TicketTierRequest   `json:"ticket_tiers,omitempty"`
@@ -144,6 +147,15 @@ func (s *EventService) CreateEvent(ctx context.Context, req *CreateEventRequest)
 	// }
 	if req.EventImageURL != nil {
 		event.SetImage(*req.EventImageURL)
+	}
+	if req.ThumbnailURL != nil {
+		event.SetThumbnail(*req.ThumbnailURL)
+	}
+	if req.PromoVideoURL != nil {
+		event.SetPromoVideo(*req.PromoVideoURL)
+	}
+	if len(req.GalleryImages) > 0 {
+		event.SetGallery(req.GalleryImages)
 	}
 	if req.SaleStart != nil && req.SaleEnd != nil {
 		if err := event.SetSalePeriod(*req.SaleStart, *req.SaleEnd); err != nil {
@@ -423,6 +435,9 @@ type EventInfo struct {
 	VenueCountry    *string                  `json:"venue_country,omitempty"`
 	VenueCapacity   *int                     `json:"venue_capacity,omitempty"`
 	EventImageURL   *string                  `json:"event_image_url,omitempty"`
+	ThumbnailURL    *string                  `json:"thumbnail_url,omitempty"`
+	PromoVideoURL   *string                  `json:"promo_video_url,omitempty"`
+	GalleryImages   entities.JSONBArray      `json:"gallery_images,omitempty"`
 	Status          entities.EventStatus     `json:"status"`
 	SaleStart       *time.Time               `json:"sale_start,omitempty"`
 	SaleEnd         *time.Time               `json:"sale_end,omitempty"`
@@ -443,6 +458,9 @@ type PublicEventInfo struct {
 	VenueCity      string               `json:"venue_city"`
 	VenueAddress   string               `json:"venue_address"`
 	EventImageURL  *string              `json:"event_image_url,omitempty"`
+	ThumbnailURL   *string              `json:"thumbnail_url,omitempty"`
+	PromoVideoURL  *string              `json:"promo_video_url,omitempty"`
+	GalleryImages  entities.JSONBArray  `json:"gallery_images,omitempty"`
 	Status         entities.EventStatus `json:"status"`
 	MinPrice       *float64             `json:"min_price,omitempty"`
 	MaxPrice       *float64             `json:"max_price,omitempty"`
@@ -484,6 +502,9 @@ func mapEventToEventInfo(event *entities.Event) *EventInfo {
 		VenueCountry:   event.VenueCountry,
 		VenueCapacity:  event.VenueCapacity,
 		EventImageURL:  event.EventImageURL,
+		ThumbnailURL:   event.ThumbnailURL,
+		PromoVideoURL:  event.PromoVideoURL,
+		GalleryImages:  event.GalleryImages,
 		Status:         event.Status,
 		SaleStart:      event.SaleStart,
 		SaleEnd:        event.SaleEnd,
@@ -506,6 +527,9 @@ func mapEventToPublicEventInfo(event *entities.Event) *PublicEventInfo {
 		VenueCity:     event.VenueCity,
 		VenueAddress:  event.VenueAddress,
 		EventImageURL: event.EventImageURL,
+		ThumbnailURL:  event.ThumbnailURL,
+		PromoVideoURL: event.PromoVideoURL,
+		GalleryImages: event.GalleryImages,
 		Status:        event.Status,
 		Currency:      "NGN",
 		// TODO: Calculate min/max prices from ticket tiers

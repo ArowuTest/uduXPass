@@ -22,6 +22,9 @@ interface RawEventData {
   eventDate: string;
   doorsOpen?: string;
   eventImageUrl?: string;
+  thumbnailUrl?: string;
+  promoVideoUrl?: string;
+  galleryImages?: string[];
   status: string;
   saleStart?: string;
   saleEnd?: string;
@@ -70,6 +73,9 @@ export function transformEventData(rawEvent: RawEventData): Event {
     venue_latitude: rawEvent.venue?.latitude,
     venue_longitude: rawEvent.venue?.longitude,
     event_image_url: rawEvent.eventImageUrl,
+    thumbnail_url: rawEvent.thumbnailUrl,
+    promo_video_url: rawEvent.promoVideoUrl,
+    gallery_images: rawEvent.galleryImages,
     status: rawEvent.status as any,
     sale_start: rawEvent.saleStart,
     sale_end: rawEvent.saleEnd,

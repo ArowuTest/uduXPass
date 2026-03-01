@@ -20,6 +20,7 @@ type TicketTier struct {
 	MaxPurchase  int        `json:"max_per_order" db:"max_per_order"`
 	SaleStart    *time.Time `json:"sale_start,omitempty" db:"sale_start"`
 	SaleEnd      *time.Time `json:"sale_end,omitempty" db:"sale_end"`
+	ImageURL     *string    `json:"image_url,omitempty" db:"image_url"`
 	Position     int        `json:"position" db:"position"`
 	IsActive     bool       `json:"is_active" db:"is_active"`
 	CreatedAt    time.Time  `json:"created_at" db:"created_at"`

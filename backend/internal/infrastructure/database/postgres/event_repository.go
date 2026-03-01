@@ -37,13 +37,13 @@ func (r *eventRepository) Create(ctx context.Context, event *entities.Event) err
 				id, organizer_id, category_id, name, slug, description, 
 				event_date, doors_open, venue_name, venue_address, 
 				venue_city, venue_state, venue_country, venue_capacity, 
-				event_image_url, status, sale_start, sale_end, 
+				event_image_url, thumbnail_url, promo_video_url, gallery_images, status, sale_start, sale_end, 
 				settings, is_active, created_at, updated_at
 			) VALUES (
 				:id, :organizer_id, :category_id, :name, :slug, :description,
 				:event_date, :doors_open, :venue_name, :venue_address,
 				:venue_city, :venue_state, :venue_country, :venue_capacity,
-				:event_image_url, :status, :sale_start, :sale_end,
+				:event_image_url, :thumbnail_url, :promo_video_url, :gallery_images, :status, :sale_start, :sale_end,
 				:settings, :is_active, :created_at, :updated_at
 			)`
 	
@@ -69,7 +69,7 @@ func (r *eventRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.
 		SELECT e.id, e.organizer_id, e.category_id, e.name, e.slug, e.description,
 			   e.event_date, e.doors_open, e.venue_name, e.venue_address, 
 			   e.venue_city, e.venue_state, e.venue_country, e.venue_capacity,
-			   e.event_image_url, e.status, e.sale_start, e.sale_end, 
+			   e.event_image_url, e.thumbnail_url, e.promo_video_url, e.gallery_images, e.status, e.sale_start, e.sale_end, 
 			   e.settings, e.created_at, e.updated_at, e.is_active
 		FROM events e
 		WHERE e.id = $1 AND e.is_active = true`
@@ -91,7 +91,7 @@ func (r *eventRepository) GetBySlug(ctx context.Context, organizerID uuid.UUID, 
 		SELECT e.id, e.organizer_id, e.category_id, e.name, e.slug, e.description,
 			   e.event_date, e.doors_open, e.venue_name, e.venue_address, 
 			   e.venue_city, e.venue_state, e.venue_country, e.venue_capacity,
-			   e.event_image_url, e.status, e.sale_start, e.sale_end, 
+			   e.event_image_url, e.thumbnail_url, e.promo_video_url, e.gallery_images, e.status, e.sale_start, e.sale_end, 
 			   e.settings, e.created_at, e.updated_at, e.is_active
 		FROM events e
 		WHERE e.organizer_id = $1 AND e.slug = $2 AND e.is_active = true`
@@ -171,7 +171,7 @@ func (r *eventRepository) List(ctx context.Context, filter repositories.EventFil
 		SELECT e.id, e.organizer_id, e.category_id, e.name, e.slug, e.description,
 			   e.event_date, e.doors_open, e.venue_name, e.venue_address, 
 			   e.venue_city, e.venue_state, e.venue_country, e.venue_capacity,
-			   e.event_image_url, e.status, e.sale_start, e.sale_end, 
+			   e.event_image_url, e.thumbnail_url, e.promo_video_url, e.gallery_images, e.status, e.sale_start, e.sale_end, 
 			   e.settings, e.created_at, e.updated_at, e.is_active
 		FROM events e`
 	
@@ -222,7 +222,7 @@ func (r *eventRepository) ListPublic(ctx context.Context, filter repositories.Pu
 		SELECT e.id, e.organizer_id, e.category_id, e.name, e.slug, e.description,
 			   e.event_date, e.doors_open, e.venue_name, e.venue_address, 
 			   e.venue_city, e.venue_state, e.venue_country, e.venue_capacity,
-			   e.event_image_url, e.status, e.sale_start, e.sale_end, 
+			   e.event_image_url, e.thumbnail_url, e.promo_video_url, e.gallery_images, e.status, e.sale_start, e.sale_end, 
 			   e.settings, e.created_at, e.updated_at, e.is_active
 		FROM events e
 		WHERE e.is_active = true AND e.status IN ('published', 'on_sale')`
@@ -344,6 +344,9 @@ func (r *eventRepository) Update(ctx context.Context, event *entities.Event) err
 			venue_country = :venue_country,
 			venue_capacity = :venue_capacity,
 			event_image_url = :event_image_url,
+			thumbnail_url = :thumbnail_url,
+			promo_video_url = :promo_video_url,
+			gallery_images = :gallery_images,
 			status = :status,
 			sale_start = :sale_start,
 			sale_end = :sale_end,

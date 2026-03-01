@@ -35,6 +35,9 @@ type Event struct {
 	VenueCountry    *string                `json:"venue_country,omitempty" db:"venue_country"`
 	VenueCapacity   *int                   `json:"venue_capacity,omitempty" db:"venue_capacity"`
 	EventImageURL   *string                `json:"event_image_url,omitempty" db:"event_image_url"`
+	ThumbnailURL    *string                `json:"thumbnail_url,omitempty" db:"thumbnail_url"`
+	PromoVideoURL   *string                `json:"promo_video_url,omitempty" db:"promo_video_url"`
+	GalleryImages   JSONBArray             `json:"gallery_images,omitempty" db:"gallery_images"`
 	Status          EventStatus            `json:"status" db:"status"`
 	SaleStart       *time.Time             `json:"sale_start,omitempty" db:"sale_start"`
 	SaleEnd         *time.Time             `json:"sale_end,omitempty" db:"sale_end"`
@@ -242,9 +245,31 @@ func (e *Event) GetRevenue() float64 {
 // 	e.UpdatedAt = time.Now()
 // }
 
-// SetImage sets the event image URL
+// SetImage sets the event hero image URL
 func (e *Event) SetImage(imageURL string) {
 	e.EventImageURL = &imageURL
+	e.UpdatedAt = time.Now()
+}
+
+// SetThumbnail sets the event thumbnail URL
+func (e *Event) SetThumbnail(thumbnailURL string) {
+	e.ThumbnailURL = &thumbnailURL
+	e.UpdatedAt = time.Now()
+}
+
+// SetPromoVideo sets the promotional video URL
+func (e *Event) SetPromoVideo(videoURL string) {
+	e.PromoVideoURL = &videoURL
+	e.UpdatedAt = time.Now()
+}
+
+// SetGallery sets the gallery images JSON array
+func (e *Event) SetGallery(images []string) {
+	gallery := make(JSONBArray, len(images))
+	for i, img := range images {
+		gallery[i] = img
+	}
+	e.GalleryImages = gallery
 	e.UpdatedAt = time.Now()
 }
 

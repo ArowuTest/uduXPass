@@ -120,6 +120,9 @@ export interface Event {
   venue_latitude?: number;
   venue_longitude?: number;
   event_image_url?: string;
+  thumbnail_url?: string;
+  promo_video_url?: string;
+  gallery_images?: string[];
   status: EventStatus;
   sale_start?: string;
   sale_end?: string;
@@ -184,6 +187,7 @@ export interface TicketTier {
   sale_start?: string;
   sale_end?: string;
   position: number;
+  image_url?: string;
   is_active: boolean;
   settings: Record<string, any>;
   created_at: string;
