@@ -89,8 +89,8 @@ The production build will be in the `dist/` directory.
 3. Click "Login to Scanner"
 
 **Test Credentials** (from backend seed data):
-- Email: `scanner1@example.com`
-- Password: `password123`
+- Email: `scanner1`
+- Password: `Scanner@123!`
 
 ### Create Scanning Session
 

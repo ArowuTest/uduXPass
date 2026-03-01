@@ -5,6 +5,7 @@ import { Route, Switch, Redirect } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { ValidationResultProvider } from "./contexts/ValidationResultContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Scanner from "./pages/Scanner";
@@ -61,12 +62,14 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light">
+      <ThemeProvider defaultTheme="dark">
         <AuthProvider>
+          <ValidationResultProvider>
           <TooltipProvider>
             <Toaster />
             <Router />
           </TooltipProvider>
+          </ValidationResultProvider>
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>

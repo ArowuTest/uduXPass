@@ -3,8 +3,11 @@ import { scannerApi, LoginRequest } from '@/lib/api';
 
 interface Scanner {
   id: string;
+  username: string;
   name: string;
   email: string;
+  role: string;
+  status: string;
 }
 
 interface AuthContextType {
@@ -42,6 +45,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (data: LoginRequest) => {
     const response = await scannerApi.login(data);
     localStorage.setItem('scanner_token', response.access_token);
+    if (response.refresh_token) {
+      localStorage.setItem('scanner_refresh_token', response.refresh_token);
+    }
     localStorage.setItem('scanner_user', JSON.stringify(response.scanner));
     setScanner(response.scanner);
   };

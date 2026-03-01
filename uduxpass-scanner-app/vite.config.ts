@@ -192,6 +192,14 @@ export default defineConfig({
       "localhost",
       "127.0.0.1",
     ],
+    proxy: {
+      // Forward all /v1/* API calls to the Go backend
+      "/v1": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
     fs: {
       strict: true,
       deny: ["**/.*"],
