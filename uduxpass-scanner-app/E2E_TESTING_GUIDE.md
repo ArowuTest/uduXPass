@@ -10,7 +10,7 @@ This document provides a comprehensive testing checklist for the uduXPass scanne
 
 ### Backend Setup
 
-1. ✅ **Backend Running**: uduXPass backend must be running on `http://localhost:8080`
+1. ✅ **Backend Running**: uduXPass backend must be running on `http://localhost:3000`
 2. ✅ **Database Seeded**: Database must have seed data (admin, events, users, scanners, tickets)
 3. ✅ **CORS Configured**: Backend must allow requests from frontend origin
 
@@ -30,8 +30,8 @@ This document provides a comprehensive testing checklist for the uduXPass scanne
 **Steps:**
 1. Navigate to `/login`
 2. Enter valid scanner credentials:
-   - Email: `scanner1@example.com`
-   - Password: `password123`
+   - Email: `scanner1`
+   - Password: `Scanner@123!`
 3. Click "Login to Scanner"
 
 **Expected Results:**

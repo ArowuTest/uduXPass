@@ -269,7 +269,7 @@ const AdminSettingsPage: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <p className="text-gray-500">Failed to load settings</p>
+          <p className="">Failed to load settings</p>
           <Button onClick={fetchSettings} className="mt-4">
             <RefreshCw className="h-4 w-4 mr-2" />
             Retry

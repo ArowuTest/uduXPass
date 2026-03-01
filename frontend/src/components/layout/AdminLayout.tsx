@@ -11,6 +11,7 @@ import {
   Menu, X, Home, Calendar, Users, ShoppingCart, BarChart3, Settings,
   LogOut, Shield, UserCheck, Ticket, Building, CreditCard, Bell, Globe, Scan, LucideIcon
 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 
 interface NavigationItem {
   title: string
@@ -19,13 +20,10 @@ interface NavigationItem {
   permission: string | null
   roles?: string[]
 }
-
-interface AdminLayoutProps {
-  children: ReactNode
-}
+interface AdminLayoutProps { children: ReactNode }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const { admin, logout, hasPermission, canAccess } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
@@ -190,9 +188,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
             </span>
           </div>
         </header>
-
-        {/* Page Content */}
-        <main className="flex-1 overflow-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6" style={{ background: 'var(--brand-navy)' }}>
           {children}
         </main>
       </div>

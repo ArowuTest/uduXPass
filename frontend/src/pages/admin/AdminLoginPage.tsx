@@ -4,7 +4,7 @@
  * Split-panel layout: feature highlights left, login form right
  */
 import React, { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,10 +44,12 @@ const AdminLoginPage: React.FC = () => {
     setIsLoading(true)
     setError('')
     try {
-      await adminLogin(formData.email, formData.password)
+      await adminLogin(email, password)
       navigate('/admin/dashboard')
-    } catch (err) {
-      setError('Login failed. Please check your credentials.')
+    } catch {
+      setError('Invalid credentials. Please check your email and password.')
+    } finally {
+      setIsLoading(false)
     }
     setIsLoading(false)
   }
